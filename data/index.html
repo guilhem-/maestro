@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#1a1430">
+  <title>Maestro</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="app app--player">
+  <header class="topbar">
+    <div class="brand">🎼 Maestro</div>
+    <span id="mode-pill" class="modepill modepill--lobby">Lobby</span>
+    <div id="conn" class="conn">connecting…</div>
+  </header>
+
+  <main id="stage" class="stage"><!-- built by player.js, swapped per mode --></main>
+
+  <section id="profile" class="profile">
+    <input id="name" type="text" maxlength="20" placeholder="Your name" autocomplete="off" spellcheck="false">
+    <div id="color-row" class="color-row" role="radiogroup" aria-label="Your colour"></div>
+    <div id="instr-wrap" class="instr-wrap">
+      <div class="instr-wrap__label">Instrument</div>
+      <div id="instr-row" class="instr-row"></div>
+    </div>
+  </section>
+
+  <script src="/js/common.js" defer></script>
+  <script src="/js/instruments.js" defer></script>
+  <script src="/js/player.js" defer></script>
+</body>
+</html>

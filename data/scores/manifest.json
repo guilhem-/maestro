@@ -1,0 +1,32 @@
+[
+  {
+    "id": "ode-to-joy",
+    "title": "Ode to Joy",
+    "composer": "Beethoven",
+    "file": "ode-to-joy.json"
+  },
+  {
+    "id": "nachtmusik",
+    "title": "Eine kleine Nachtmusik",
+    "composer": "Mozart",
+    "file": "nachtmusik.json"
+  },
+  {
+    "id": "minuet-in-g",
+    "title": "Minuet in G",
+    "composer": "Bach (Petzold)",
+    "file": "minuet-in-g.json"
+  },
+  {
+    "id": "canon-in-d",
+    "title": "Canon in D",
+    "composer": "Pachelbel",
+    "file": "canon-in-d.json"
+  },
+  {
+    "id": "spring",
+    "title": "Spring (La Primavera)",
+    "composer": "Vivaldi",
+    "file": "spring.json"
+  }
+]

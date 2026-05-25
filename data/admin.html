@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="color-scheme" content="dark">
+  <meta name="theme-color" content="#1a1430">
+  <title>Maestro — Podium</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body class="app--admin">
+
+  <!-- Shown if the server demoted us (conductor already taken). -->
+  <section id="not-admin" hidden>
+    <div class="not-admin__inner">
+      <h1>The podium is taken</h1>
+      <p>Another device is already conducting. Reload to join as a musician, or
+      close the podium tab on the other device first.</p>
+      <button id="btn-reload" type="button">Reload</button>
+    </div>
+  </section>
+
+  <main id="podium" hidden>
+    <header class="topbar topbar--admin">
+      <div class="brand">🎩 Maestro <span class="brand__sub">Podium</span></div>
+      <span id="mode-pill" class="modepill modepill--lobby">Lobby</span>
+      <div id="status" class="status">connecting…</div>
+    </header>
+
+    <section class="panel">
+      <h2 class="panel__h"><span class="step">1</span> Choose a piece</h2>
+      <div id="score-row" class="score-row"></div>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel__h"><span class="step">2</span> Choose a mode</h2>
+      <div id="mode-row" class="mode-row"></div>
+    </section>
+
+    <section id="assign-bar" class="panel" hidden>
+      <h2 class="panel__h"><span class="step">3</span> Assign parts
+        <button id="btn-auto" class="btn btn--ghost" type="button">🎲 Auto-assign</button>
+      </h2>
+      <p class="panel__hint">Each musician gets a voice dropdown on their card below.</p>
+    </section>
+
+    <section id="transport-bar" class="transport" hidden>
+      <button id="btn-start" class="btn btn--go" type="button" disabled>▶ Start</button>
+      <button id="btn-stop"  class="btn btn--stop" type="button" disabled>■ Stop</button>
+      <label class="toggle" title="The podium plays any voice that has no musician assigned">
+        <input type="checkbox" id="chk-autofill"> 🎹 Auto-play empty parts
+      </label>
+      <div id="transport-status" class="transport__status"></div>
+    </section>
+
+    <section id="cue" class="cue panel" hidden>
+      <h2 class="panel__h">🎼 Conductor cue <span class="panel__note">who plays what, ~1.5s ahead</span></h2>
+      <div id="cue-list" class="cue-list"></div>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel__h">🎻 Orchestra</h2>
+      <div id="player-grid" class="player-grid"></div>
+      <p id="empty-msg" class="empty-msg" hidden>No musicians yet — have everyone join the open Wi-Fi “Maestro”.</p>
+    </section>
+  </main>
+
+  <script src="/js/common.js" defer></script>
+  <script src="/js/instruments.js" defer></script>
+  <script src="/js/admin.js" defer></script>
+</body>
+</html>
