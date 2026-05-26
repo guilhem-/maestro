@@ -206,6 +206,16 @@ void handleStop(AsyncWebSocketClient* client) {
     broadcastState();
 }
 
+void handleResign(AsyncWebSocketClient* client) {
+    Player* p = g_game.findByWsId(client->id());
+    if (!p) { sendUnicastError(client, "not_joined", "send hello first"); return; }
+    if (!g_game.resignAdmin(p->clientId)) {
+        sendUnicastError(client, "not_admin", "resign requires being the conductor");
+        return;
+    }
+    broadcastState();
+}
+
 void handleKick(AsyncWebSocketClient* client, JsonDocument& in) {
     Player* p = g_game.findByWsId(client->id());
     if (!p) { sendUnicastError(client, "not_joined", "send hello first"); return; }
@@ -267,6 +277,7 @@ void onWsEvent(AsyncWebSocket*       /*server*/,
             else if (!strcmp(t, "assign"))      handleAssign(client, in);
             else if (!strcmp(t, "start"))       handleStart(client, in);
             else if (!strcmp(t, "stop"))        handleStop(client);
+            else if (!strcmp(t, "resign"))      handleResign(client);
             else if (!strcmp(t, "kick"))        handleKick(client, in);
             else {
                 sendUnicastError(client, "unknown_type", t[0] ? t : "(missing)");

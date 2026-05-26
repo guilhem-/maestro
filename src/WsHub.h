@@ -68,6 +68,7 @@
 //          "master" = conductor device auto-plays all voices; "players" = each
 //          musician device auto-plays its assigned voice. Ignored otherwise.
 //   { "t": "stop"  }   // RUNNING -> IDLE
+//   { "t": "resign" }  // conductor steps down → seat freed immediately for anyone
 //   { "t": "kick", "playerId": "<id>" }
 //
 // -----------------------------------------------------------------------------

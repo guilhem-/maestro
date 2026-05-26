@@ -400,6 +400,20 @@ uint32_t GameState::kick(const String& adminClientId, const String& targetId) {
     return wsId;
 }
 
+bool GameState::resignAdmin(const String& clientId) {
+    portENTER_CRITICAL(&mux_);
+    if (clientId.length() == 0 || clientId != adminId_) {
+        portEXIT_CRITICAL(&mux_);
+        return false;
+    }
+    // Free the seat outright (no grace window) — the conductor asked to leave.
+    adminId_             = "";
+    adminWsClientId_     = 0;
+    adminOfflineSinceMs_ = 0;
+    portEXIT_CRITICAL(&mux_);
+    return true;
+}
+
 // -----------------------------------------------------------------------------
 // WS lifecycle hooks
 // -----------------------------------------------------------------------------

@@ -95,6 +95,11 @@ public:
     // close that socket; frees the slot so the clientId can rejoin fresh.
     uint32_t kick(const String& adminClientId, const String& targetId);
 
+    // Conductor voluntarily steps down: frees the admin seat immediately (no
+    // grace reservation) so anyone can claim it. The client keeps its player
+    // slot. Returns false if the caller isn't the current conductor.
+    bool resignAdmin(const String& clientId);
+
     // --- WS lifecycle hooks -------------------------------------------------
     void markOffline(uint32_t wsClientId);
     bool expireStaleAdmin();

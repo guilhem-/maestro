@@ -11,7 +11,11 @@ namespace Config {
 constexpr const char* AP_SSID = "Maestro";
 constexpr const char* AP_PSK  = "";              // empty = open network
 constexpr uint8_t     AP_CHANNEL         = 1;
-constexpr uint8_t     AP_MAX_CONNECTIONS = 16;   // C3 firmware allows up to 16
+// Soft-AP simultaneous client cap. ESP-IDF 4.4 (arduino-esp32 2.0.x, the
+// espressif32@6.9 toolchain) rejects max_connection > ~10 — set too high,
+// softAP() fails and NO network is broadcast. 8 is a safe value; raise only if
+// your toolchain's IDF (5.x) supports more.
+constexpr uint8_t     AP_MAX_CONNECTIONS = 8;
 
 // Captive portal / mDNS — http://maestro.local resolves on the AP subnet.
 constexpr const char* MDNS_HOST = "maestro";

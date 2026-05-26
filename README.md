@@ -99,8 +99,11 @@ Open a serial monitor to confirm the AP came up:
 3. One device opens <http://192.168.4.1/admin> — **the first browser to claim it
    becomes the conductor**; everyone else stays a musician. While no conductor is
    active, every musician sees a pulsing **"🎩 Become the conductor"** button and
-   can claim the podium with one tap. If the conductor leaves, the seat is held
-   for ~20 s (so a reload keeps it) and then offered to everyone again.
+   can claim the podium with one tap. The conductor can hand off at any time by
+   tapping **🚪 Step down as conductor** on their own card in the orchestra grid
+   (they drop back to a musician and the seat reopens immediately). If the
+   conductor just closes the tab, the seat is held ~20 s (so a reload keeps it)
+   and then offered to everyone again.
 4. On the podium: **① choose a piece → ② choose a mode**.
    - *Free Play*: a multi-touch falling-note instrument — musicians play
      immediately, no assignment needed.

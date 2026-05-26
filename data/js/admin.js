@@ -262,7 +262,17 @@
     var stats = el('div', 'pcard__stats', '');
     root.appendChild(stats);
 
-    return { root: root, stripe: stripe, icon: icon, name: name, sel: sel, stats: stats, voicesSig: '' };
+    // Shown only on the conductor's OWN card: step down and rejoin as a musician,
+    // freeing the podium for anyone else.
+    var leave = el('button', 'pcard__leave', '🚪 Step down as conductor'); leave.type = 'button'; leave.hidden = true;
+    leave.addEventListener('click', function () {
+      if (!confirm('Step down as conductor? The podium opens for anyone, and this device becomes a musician.')) return;
+      send({ t: 'resign' });
+      window.location.href = '/';     // rejoin as a plain musician
+    });
+    root.appendChild(leave);
+
+    return { root: root, stripe: stripe, icon: icon, name: name, sel: sel, stats: stats, kick: kick, leave: leave, voicesSig: '' };
   }
 
   function updateCard(entry, p, voices) {
@@ -272,6 +282,11 @@
     entry.stripe.style.background = color;
     entry.root.classList.toggle('offline', p.online === false);
     entry.root.classList.toggle('is-conductor', lastState && p.id === lastState.adminId);
+
+    // This device's own card: offer "step down" instead of "kick yourself".
+    var isMe = (p.id === myId);
+    entry.leave.hidden = !isMe;
+    entry.kick.hidden = isMe;
 
     // Voice <select> — rebuild options only when the voice set changes.
     var sig = voices.map(function (v) { return v.id; }).join(',');

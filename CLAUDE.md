@@ -152,7 +152,10 @@ carries a `parts` count (number of voices) shown on each podium score card.
 
 While the conductor seat is empty, every musician page shows a pulsing "Become
 the conductor" button (`#claim-host`, toggled by `state.adminId`) that loads
-`/admin`; the seat is freed for it `ADMIN_GRACE_MS` after a conductor drops.
+`/admin`; the seat is freed for it `ADMIN_GRACE_MS` after a conductor drops. The
+conductor can also hand off deliberately: the "step down" button on their own
+grid card sends `resign` (frees the seat immediately, no grace) and redirects to
+`/` to rejoin as a musician.
 
 Per-musician
 hit/miss counters in `state` only refresh on structural changes (the `play`
