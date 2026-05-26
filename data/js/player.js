@@ -137,7 +137,10 @@
   }
 
   function scoreInstrumentIds() {
-    if (curScore && curScore.voices) {
+    // Test Play (FREE) draws its instrument list from the selected piece's
+    // voices; Free Play (and the lobby) offer the full bank to improvise with.
+    var mode = lastState && lastState.mode;
+    if (mode === 'FREE' && curScore && curScore.voices) {
       var seen = {}, out = [];
       curScore.voices.forEach(function (v) { if (v.instrument && !seen[v.instrument]) { seen[v.instrument] = 1; out.push(v.instrument); } });
       if (out.length) return out;
@@ -298,12 +301,13 @@
     // Tuning gate (shown whenever we have an instrument that isn't ready yet).
     if (effInstr && !instrReady) { buildTuning(stage); toggleProfile(mode === 'LOBBY' || mode === 'FREE'); return; }
 
-    if (mode === 'FREE')        buildFree(stage);
-    else if (mode === 'ALONG')  buildAlong(stage);
-    else if (mode === 'DRIVEN') buildDriven(stage);
-    else                        buildLobby(stage);
+    if (mode === 'FREE')          buildFree(stage);
+    else if (mode === 'FREEPLAY') buildFreePlay(stage);
+    else if (mode === 'ALONG')    buildAlong(stage);
+    else if (mode === 'DRIVEN')   buildDriven(stage);
+    else                          buildLobby(stage);
 
-    toggleProfile(mode === 'LOBBY' || mode === 'FREE');
+    toggleProfile(mode === 'LOBBY' || mode === 'FREE' || mode === 'FREEPLAY');
   }
 
   function toggleProfile(showInstr) {
@@ -347,9 +351,130 @@
     pad.appendChild(el('span', 'pad__label', 'PLAY'));
     bindPad(pad, 'FREE');
     els.pad = pad;
-    w.appendChild(el('div', 'free__hint', 'Tap to play — free improvisation on your ' + I.label(effInstr)));
+    w.appendChild(el('div', 'free__hint', 'Test your ' + I.label(effInstr) + ' — each tap plays a random note'));
     w.appendChild(pad);
     stage.appendChild(w);
+  }
+
+  // ---- Free Play: multi-touch falling-note instrument ----------------------
+  // Touch a pitch column → a note is born and falls; its length tracks how long
+  // you hold; sliding to another column starts a new note; the note SOUNDS when
+  // it crosses the gate. Several fingers ⇒ several notes at once (chords).
+  var FP_COLS = [60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71]; // C4..B4 chromatic
+  var FP_LEAD = 1500;        // ms a note falls before it reaches the gate
+  var fpNotes = [];          // {col,pitch,startClock,endClock,playClock,played}
+  var fpPointers = {};       // pointerId -> active note
+
+  function fpReset() { fpNotes = []; fpPointers = {}; }
+  function pcName(m) { return I.noteName(m).replace(/-?\d+$/, ''); }
+  function isSharp(m) { var s = ((m % 12) + 12) % 12; return s === 1 || s === 3 || s === 6 || s === 8 || s === 10; }
+  function fpColForX(x, W) { var n = FP_COLS.length; return Math.max(0, Math.min(n - 1, Math.floor(x / (W / n)))); }
+  function fpNewNote(col) {
+    var now = performance.now();
+    var o = { col: col, pitch: FP_COLS[col], startClock: now, endClock: null, playClock: now + FP_LEAD, played: false };
+    fpNotes.push(o);
+    return o;
+  }
+  function fpFinalize(o) { if (o && o.endClock == null) o.endClock = performance.now(); }
+
+  function buildFreePlay(stage) {
+    var w = el('div', 'driven');
+    var bar = el('div', 'partbar'); bar.style.setProperty('--pad', profile.color);
+    bar.appendChild(el('span', 'partbar__icon', I.icon(effInstr)));
+    bar.appendChild(el('span', 'partbar__name', 'Free Play · ' + I.label(effInstr)));
+    w.appendChild(bar);
+
+    var lane = el('div', 'lane lane--free');
+    els.canvas = document.createElement('canvas');
+    els.canvas.className = 'lane__canvas';
+    els.canvas.style.touchAction = 'none';
+    lane.appendChild(els.canvas);
+    w.appendChild(lane);
+    w.appendChild(el('div', 'free__hint', 'Touch & hold the columns — slide and use several fingers for chords'));
+    stage.appendChild(w);
+
+    fpReset();
+    bindFreePointers(els.canvas);
+    sizeCanvas();
+  }
+
+  function bindFreePointers(cv) {
+    function ptX(e) { var r = cv.getBoundingClientRect(); return e.clientX - r.left; }
+    cv.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); I.unlock();
+      try { cv.setPointerCapture(e.pointerId); } catch (_) {}
+      fpPointers[e.pointerId] = fpNewNote(fpColForX(ptX(e), cv.clientWidth));
+    });
+    cv.addEventListener('pointermove', function (e) {
+      var cur = fpPointers[e.pointerId]; if (!cur) return;
+      var col = fpColForX(ptX(e), cv.clientWidth);
+      if (col !== cur.col) { fpFinalize(cur); fpPointers[e.pointerId] = fpNewNote(col); }
+    });
+    function endP(e) { var cur = fpPointers[e.pointerId]; if (cur) { fpFinalize(cur); delete fpPointers[e.pointerId]; } }
+    cv.addEventListener('pointerup', endP);
+    cv.addEventListener('pointercancel', endP);
+    cv.addEventListener('lostpointercapture', endP);
+    cv.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+  }
+
+  function updateFreePlay(now) {
+    if (!instrReady || !effInstr) return;
+    for (var i = 0; i < fpNotes.length; i++) {
+      var o = fpNotes[i];
+      if (!o.played && now >= o.playClock) {
+        o.played = true;
+        var dur = Math.max(120, (o.endClock || now) - o.startClock);
+        I.play(effInstr, o.pitch, 0, 0.95, null, dur);
+        spawnNote(profile.color, true);
+        if (conn) conn.send({ t: 'play', midi: o.pitch, correct: true, voiceId: '' });
+      }
+    }
+    // Cull notes whose tail has fully passed the gate.
+    fpNotes = fpNotes.filter(function (o) {
+      var dur = (o.endClock || now) - o.startClock;
+      return now < o.playClock + dur + 500;
+    });
+  }
+
+  function drawFreePlay(now) {
+    var cv = els.canvas, ctx = cv.getContext('2d');
+    var dpr = window.devicePixelRatio || 1;
+    var W = cv.width, H = cv.height;
+    ctx.clearRect(0, 0, W, H);
+
+    var n = FP_COLS.length, colW = W / n;
+    var labelH = 28 * dpr, gateY = H - 54 * dpr, travel = gateY - labelH;
+    var pxPerMs = travel / FP_LEAD;
+
+    // Columns + pitch labels.
+    for (var c = 0; c < n; c++) {
+      var x0 = c * colW;
+      ctx.fillStyle = isSharp(FP_COLS[c]) ? 'rgba(0,0,0,0.22)' : ((c % 2) ? 'rgba(255,255,255,0.03)' : 'rgba(255,255,255,0.06)');
+      ctx.fillRect(x0, 0, colW, H);
+      ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth = 1 * dpr;
+      ctx.beginPath(); ctx.moveTo(x0, 0); ctx.lineTo(x0, H); ctx.stroke();
+      ctx.fillStyle = isSharp(FP_COLS[c]) ? 'rgba(176,139,255,0.85)' : 'rgba(243,238,254,0.75)';
+      ctx.font = 'bold ' + (12 * dpr) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(pcName(FP_COLS[c]), x0 + colW / 2, labelH / 2);
+    }
+
+    // Gate.
+    ctx.strokeStyle = 'rgba(255,215,107,0.55)'; ctx.lineWidth = 2 * dpr;
+    ctx.beginPath(); ctx.moveTo(0, gateY); ctx.lineTo(W, gateY); ctx.stroke();
+
+    // Notes.
+    var col = profile.color || '#b08bff';
+    for (var i = 0; i < fpNotes.length; i++) {
+      var o = fpNotes[i];
+      var dur = (o.endClock || now) - o.startClock;
+      var yLead = gateY - (o.playClock - now) * pxPerMs;   // bottom edge (musical start)
+      var durPx = Math.max(6 * dpr, dur * pxPerMs);
+      var x = o.col * colW + 2 * dpr, wRect = colW - 4 * dpr;
+      ctx.globalAlpha = o.played ? 0.5 : 0.95;
+      ctx.fillStyle = o.played ? '#2ecc71' : col;
+      ctx.fillRect(x, yLead - durPx, wRect, durPx);
+      ctx.globalAlpha = 1;
+    }
   }
 
   function buildWaitingForPart(stage, modeLabel) {
@@ -457,6 +582,7 @@
 
     if (mode === 'ALONG' && myVoice) updateAlong(pos);
     if (mode === 'DRIVEN' && myVoice && els.canvas) drawLane(pos);
+    if (mode === 'FREEPLAY' && els.canvas) { var nowp = performance.now(); updateFreePlay(nowp); drawFreePlay(nowp); }
   }
 
   function showCountdown(n) {
@@ -664,7 +790,7 @@
     els.modePill.className = 'modepill modepill--' + mode.toLowerCase();
     els.conn.textContent = (conn && conn.synced() ? '🟢' : '🟡') + ' ' + online + '/' + total + ' musicians';
   }
-  function modeLabel(m) { return ({ LOBBY: 'Lobby', FREE: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes' })[m] || m; }
+  function modeLabel(m) { return ({ LOBBY: 'Lobby', FREE: 'Test Play', FREEPLAY: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes' })[m] || m; }
   function flashConn(msg) { if (els.conn) { els.conn.textContent = '⚠️ ' + msg; } }
 
   function showConductorBanner() {

@@ -38,7 +38,10 @@ struct Player {
     uint32_t misses = 0;                   // notes judged out-of-sync
 };
 
-enum class Mode : uint8_t { LOBBY, FREE, ALONG, DRIVEN };
+// FREE     = "Test Play": tap a button, random 4th-octave note.
+// FREEPLAY = "Free Play": multi-touch falling-note instrument (client-side).
+// Neither uses the transport; ALONG/DRIVEN do.
+enum class Mode : uint8_t { LOBBY, FREE, FREEPLAY, ALONG, DRIVEN };
 
 class GameState {
 public:

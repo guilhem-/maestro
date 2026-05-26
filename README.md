@@ -24,11 +24,12 @@ perceived level) and the whole output runs through a limiter, so no single timbr
 saturates the speakers and stacked notes never clip. A correctly-played note also
 sounds for its **scored length**, so quarter notes are crisper than half notes.
 
-## The three modes
+## The four modes
 
 | Mode | What musicians do | Pitch is correct when… |
 |------|-------------------|------------------------|
-| 🎲 **Free Play** | Pick an instrument, tap to improvise | always random (4th octave) — just jam |
+| 🎶 **Free Play** | A multi-touch instrument: a zone of labelled pitch columns (A–G with sharps). Touch a column to start a note; **how long you hold sets its length**; slide to another column to start a new note. Notes fall and **sound as they cross the gate**. Several fingers ⇒ chords. | you pick the notes — there's no "wrong" |
+| 🎲 **Test Play** | Pick an instrument and tap a button — a sound check / warm-up | always random (4th octave) |
 | 🎺 **Play Along** | The conductor's device plays the tune for 10 s, then fades; musicians keep it going by ear while the conductor directs | you tap within **±0.5 s** of your note |
 | 🎯 **Follow Notes** | Notes fall down a lane toward a gate; **horizontal position shows pitch** (low ← → high), so the falling dots trace the melody; tap as each one lands | you tap within **±0.3 s** of the gate |
 
@@ -88,7 +89,9 @@ Open a serial monitor to confirm the AP came up:
    becomes the conductor**; everyone else stays a musician. To hand off, close
    the podium tab and reload on the new device.
 4. On the podium: **① choose a piece → ② choose a mode**.
-   - *Free Play*: musicians pick instruments and jam immediately.
+   - *Free Play*: a multi-touch falling-note instrument — musicians play
+     immediately, no assignment needed.
+   - *Test Play*: musicians pick an instrument and tap to sound-check.
    - *Play Along* / *Follow Notes*: **③ assign parts** (tap **Auto-assign** or
      use each musician's voice dropdown), then press **▶ Start**. A 3-2-1
      countdown gets the whole room going together.

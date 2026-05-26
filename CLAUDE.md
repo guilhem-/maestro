@@ -7,7 +7,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Maestro C3 is firmware for a single ESP32-C3 that turns a roomful of phones into
 a **wireless orchestra**. Phones join an open WiFi soft-AP ("Maestro",
 `192.168.4.1`); each phone becomes an *instrument*. One device claims `/admin`
-and conducts: it picks one of 5 public-domain classical pieces and one of 3 game
+and conducts: it picks one of 5 public-domain classical pieces and one of 4 game
 modes. PlatformIO + Arduino framework; web UI served from a LittleFS partition.
 
 It is a sibling of `../quizhub` and deliberately reuses its proven plumbing
@@ -96,12 +96,21 @@ shared across three layers: the server FSM (`GameState`/`WsHub`), the musician U
 rename or reshape a field in one layer without updating all three and the
 comment block in `WsHub.h`.** Receivers must ignore unknown `t` values.
 
-### The three modes
+### The four modes
 
-- **FREE** — each musician picks an instrument (the list is derived from the
-  selected score's voices) and taps a button to play a **random 4th-octave**
-  note. Purely local; the server only fans out `note` events for the shared
-  visualization.
+- **FREE ("Test Play")** — each musician picks an instrument (the list is derived
+  from the selected score's voices) and taps a button to play a **random
+  4th-octave** note. A sound-check / warm-up. Purely local; the server only fans
+  out `note` events for the shared visualization.
+- **FREEPLAY ("Free Play")** — a multi-touch falling-note *instrument*
+  (`player.js` canvas, no score/transport). The lane is a row of labelled pitch
+  columns (one chromatic octave, C4..B4). A pointer-down spawns a note in that
+  column; the note's sounding duration tracks how long the touch is held;
+  dragging to another column finalizes the current note and starts a new one.
+  Each note falls over `FP_LEAD` (1.5 s) and **sounds when it crosses the gate**.
+  Every pointer is tracked independently (`setPointerCapture`, `touch-action:
+  none`), so multiple fingers play in parallel. Entirely client-side; broadcasts
+  `note` events for the shared visualization.
 - **ALONG** — the conductor assigns musicians to score voices and starts the
   transport. The conductor *device* plays the piece as an audible guide for
   `introMs` (10 s), then fades out (scheduled through a Web Audio fade bus in

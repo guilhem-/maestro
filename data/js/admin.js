@@ -82,7 +82,12 @@
     for (var i = 0; i < n.length; i++) n[i].classList.toggle('score-card--sel', n[i].getAttribute('data-score') === curScoreId);
   }
 
-  var MODES = [['FREE', '🎲 Free Play', 'Everyone improvises'], ['ALONG', '🎺 Play Along', 'Follow the conductor'], ['DRIVEN', '🎯 Follow Notes', 'Catch falling notes']];
+  var MODES = [
+    ['FREEPLAY', '🎶 Free Play',   'Touch to make music'],
+    ['FREE',     '🎲 Test Play',   'Tap = random note'],
+    ['ALONG',    '🎺 Play Along',  'Follow the conductor'],
+    ['DRIVEN',   '🎯 Follow Notes', 'Catch falling notes']
+  ];
   function buildModeButtons() {
     els.modeRow.innerHTML = '';
     MODES.forEach(function (mdef) {
@@ -175,7 +180,7 @@
   // ===========================================================================
   function renderAll() {
     var mode = (lastState && lastState.mode) || 'LOBBY';
-    els.modePill.textContent = ({ LOBBY: 'Lobby', FREE: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes' })[mode] || mode;
+    els.modePill.textContent = ({ LOBBY: 'Lobby', FREE: 'Test Play', FREEPLAY: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes' })[mode] || mode;
     els.modePill.className = 'modepill modepill--' + mode.toLowerCase();
 
     var timed = (mode === 'ALONG' || mode === 'DRIVEN');

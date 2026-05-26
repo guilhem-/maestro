@@ -55,7 +55,9 @@
 //
 //   --- conductor (admin) only ---
 //   { "t": "selectScore", "scoreId": "<id>" }     // load a piece (stops transport)
-//   { "t": "setMode", "mode": "FREE"|"ALONG"|"DRIVEN" }   // (stops transport)
+//   { "t": "setMode", "mode": "FREE"|"FREEPLAY"|"ALONG"|"DRIVEN" }  // (stops transport)
+//        - FREE = "Test Play" (tap → random note); FREEPLAY = "Free Play"
+//          (multi-touch falling-note instrument, judged entirely client-side).
 //   { "t": "assign", "pairs": [ {"playerId":"<id>","voiceId":"<str>"}, ... ] }
 //        - Assign musicians to score voices (voiceId "" clears). The conductor
 //          UI computes the distribution (it has the score); the server stores
@@ -69,7 +71,7 @@
 // -----------------------------------------------------------------------------
 //
 //   { "t": "state",
-//     "mode":    "LOBBY"|"FREE"|"ALONG"|"DRIVEN",
+//     "mode":    "LOBBY"|"FREE"|"FREEPLAY"|"ALONG"|"DRIVEN",
 //     "scoreId": "<id or empty>",
 //     "adminId": "<clientId of conductor, empty if none>",
 //     "transport": {

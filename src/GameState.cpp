@@ -49,19 +49,21 @@ void clampLen(String& s, size_t maxLen) {
 
 const char* modeToStr(Mode m) {
     switch (m) {
-        case Mode::FREE:   return "FREE";
-        case Mode::ALONG:  return "ALONG";
-        case Mode::DRIVEN: return "DRIVEN";
+        case Mode::FREE:     return "FREE";
+        case Mode::FREEPLAY: return "FREEPLAY";
+        case Mode::ALONG:    return "ALONG";
+        case Mode::DRIVEN:   return "DRIVEN";
         case Mode::LOBBY:
-        default:           return "LOBBY";
+        default:             return "LOBBY";
     }
 }
 
 bool parseMode(const String& s, Mode& out) {
-    if      (s == "FREE")   out = Mode::FREE;
-    else if (s == "ALONG")  out = Mode::ALONG;
-    else if (s == "DRIVEN") out = Mode::DRIVEN;
-    else if (s == "LOBBY")  out = Mode::LOBBY;
+    if      (s == "FREE")     out = Mode::FREE;
+    else if (s == "FREEPLAY") out = Mode::FREEPLAY;
+    else if (s == "ALONG")    out = Mode::ALONG;
+    else if (s == "DRIVEN")   out = Mode::DRIVEN;
+    else if (s == "LOBBY")    out = Mode::LOBBY;
     else return false;
     return true;
 }
