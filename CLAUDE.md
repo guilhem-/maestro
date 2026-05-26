@@ -79,9 +79,18 @@ It is a **broadcast-snapshot state machine** (same shape as QuizHub):
   a hard refresh from any browser is always safe.
 - `src/WsHub.cpp` parses incoming frames by their `t` discriminator, calls into
   `g_game`, then rebroadcasts. `src/WebRoutes.cpp` serves static files, the
-  `/scores/*` tree, the filtered `/scores/manifest.json`, and captive-portal
-  redirects.
+  `/scores/*` tree, the filtered `/scores/manifest.json`, and the captive portal.
 - `src/Persistence` wraps NVS: per-clientId profiles `{name,color,instrument}`.
+
+`WebRoutes.cpp` ports QuizHub's current **CAPPORT (RFC 8908)** captive flow, kept
+in sync with it. Per-IP state (`s_captive`) tracks `validated` + a one-time
+`code`. While UNVALIDATED, every connectivity probe and off-host request 302s to
+`/portal` (so the OS auto-pops its "Sign in" sheet showing a "Connected →
+Continue" page with the coded `/?k=` link); opening the app URL `captiveValidate`s
+the client, after which the same probes return the OS-expected "online" payload
+and the sheet is dismissed. `/captive-api` exposes the same `captive` flag as
+RFC 8908 JSON. If you change a probe/redirect rule, mirror it across `probeReply`
+and the `onNotFound` off-host branch.
 
 The high-frequency `play` and `tsync` messages are **edge events** that do NOT
 trigger a full-state rebroadcast (the hot path stays tiny). Per-player hit/miss

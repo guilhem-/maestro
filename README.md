@@ -82,8 +82,11 @@ Open a serial monitor to confirm the AP came up:
 ## Playing
 
 1. On every phone, join the open Wi-Fi network **Maestro**. The captive-portal
-   popup should open the musician UI automatically; if not, visit
-   <http://192.168.4.1/> (or <http://maestro.local/> on a computer).
+   sheet pops up by itself showing a **"Connected → Continue to Maestro"** page;
+   tap **Continue** to open the musician UI in a real browser (this also
+   dismisses the captive sheet so your phone stops nagging about "no Internet").
+   If it doesn't appear, visit <http://192.168.4.1/> (or <http://maestro.local/>
+   on a computer).
 2. Each musician types a name and picks a colour.
 3. One device opens <http://192.168.4.1/admin> — **the first browser to claim it
    becomes the conductor**; everyone else stays a musician. To hand off, close
@@ -143,6 +146,10 @@ order).
   ESP over the WebSocket; give them a few seconds after joining before starting,
   and keep the AP uncongested. The judging windows (±0.3–0.5 s) absorb normal
   LAN jitter.
+- **The captive sheet keeps reopening / "no Internet" warnings.** The portal
+  releases a phone only once it has *opened the app* (tap **Continue**, or load
+  192.168.4.1). After that its connectivity probes are answered "online" for the
+  session. If a phone never opens the app it stays captive by design.
 - **iOS can't resolve `maestro.local`.** Some Android/iOS builds strip mDNS — use
   <http://192.168.4.1/> directly.
 - **More than 16 phones join.** The 17th onward associate to the AP but the hub
