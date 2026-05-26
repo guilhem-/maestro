@@ -3,30 +3,70 @@
     "id": "ode-to-joy",
     "title": "Ode to Joy",
     "composer": "Beethoven",
-    "file": "ode-to-joy.json"
+    "file": "ode-to-joy.json",
+    "parts": 3
   },
   {
     "id": "nachtmusik",
     "title": "Eine kleine Nachtmusik",
     "composer": "Mozart",
-    "file": "nachtmusik.json"
+    "file": "nachtmusik.json",
+    "parts": 3
   },
   {
     "id": "minuet-in-g",
     "title": "Minuet in G",
     "composer": "Bach (Petzold)",
-    "file": "minuet-in-g.json"
+    "file": "minuet-in-g.json",
+    "parts": 2
   },
   {
     "id": "canon-in-d",
     "title": "Canon in D",
     "composer": "Pachelbel",
-    "file": "canon-in-d.json"
+    "file": "canon-in-d.json",
+    "parts": 3
   },
   {
     "id": "spring",
     "title": "Spring (La Primavera)",
     "composer": "Vivaldi",
-    "file": "spring.json"
+    "file": "spring.json",
+    "parts": 3
+  },
+  {
+    "id": "fur-elise",
+    "title": "F\u00fcr Elise",
+    "composer": "Beethoven",
+    "file": "fur-elise.json",
+    "parts": 2
+  },
+  {
+    "id": "mountain-king",
+    "title": "In the Hall of the Mountain King",
+    "composer": "Grieg",
+    "file": "mountain-king.json",
+    "parts": 2
+  },
+  {
+    "id": "william-tell",
+    "title": "William Tell (Finale)",
+    "composer": "Rossini",
+    "file": "william-tell.json",
+    "parts": 2
+  },
+  {
+    "id": "brahms-lullaby",
+    "title": "Brahms' Lullaby",
+    "composer": "Brahms",
+    "file": "brahms-lullaby.json",
+    "parts": 2
+  },
+  {
+    "id": "swan-lake",
+    "title": "Swan Lake (Theme)",
+    "composer": "Tchaikovsky",
+    "file": "swan-lake.json",
+    "parts": 2
   }
 ]

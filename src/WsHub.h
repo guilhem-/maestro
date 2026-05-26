@@ -55,14 +55,18 @@
 //
 //   --- conductor (admin) only ---
 //   { "t": "selectScore", "scoreId": "<id>" }     // load a piece (stops transport)
-//   { "t": "setMode", "mode": "FREE"|"FREEPLAY"|"ALONG"|"DRIVEN" }  // (stops transport)
+//   { "t": "setMode", "mode": "FREE"|"FREEPLAY"|"ALONG"|"DRIVEN"|"LISTEN" }  // (stops transport)
 //        - FREE = "Test Play" (tap → random note); FREEPLAY = "Free Play"
-//          (multi-touch falling-note instrument, judged entirely client-side).
+//          (multi-touch falling-note instrument, judged client-side); LISTEN =
+//          "Listen Only" (the piece auto-plays, no tapping).
 //   { "t": "assign", "pairs": [ {"playerId":"<id>","voiceId":"<str>"}, ... ] }
 //        - Assign musicians to score voices (voiceId "" clears). The conductor
 //          UI computes the distribution (it has the score); the server stores
 //          the voiceId strings opaquely.
-//   { "t": "start" }   // begin the transport: IDLE -> RUNNING with a lead-in
+//   { "t": "start", "target": "master"|"players" }   // begin the transport
+//        - Lead-in countdown, then RUNNING. `target` applies only to LISTEN:
+//          "master" = conductor device auto-plays all voices; "players" = each
+//          musician device auto-plays its assigned voice. Ignored otherwise.
 //   { "t": "stop"  }   // RUNNING -> IDLE
 //   { "t": "kick", "playerId": "<id>" }
 //
@@ -71,13 +75,14 @@
 // -----------------------------------------------------------------------------
 //
 //   { "t": "state",
-//     "mode":    "LOBBY"|"FREE"|"FREEPLAY"|"ALONG"|"DRIVEN",
+//     "mode":    "LOBBY"|"FREE"|"FREEPLAY"|"ALONG"|"DRIVEN"|"LISTEN",
 //     "scoreId": "<id or empty>",
 //     "adminId": "<clientId of conductor, empty if none>",
 //     "transport": {
 //        "running":  <bool>,
 //        "startAtMs":<server-clock ms at score position 0; 0 if stopped>,
-//        "introMs":  <ms the conductor device guides before fading (ALONG=10000)>
+//        "introMs":  <ms the conductor device guides before fading (ALONG=10000)>,
+//        "target":   "master"|"players"|""   // LISTEN auto-play target
 //     },
 //     "players": [
 //       { "id":"<id>", "name":"<str>", "color":"<#rrggbb>",

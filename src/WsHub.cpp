@@ -185,11 +185,12 @@ void handleAssign(AsyncWebSocketClient* client, JsonDocument& in) {
     broadcastState();
 }
 
-void handleStart(AsyncWebSocketClient* client) {
+void handleStart(AsyncWebSocketClient* client, JsonDocument& in) {
     Player* p = g_game.findByWsId(client->id());
     if (!p) { sendUnicastError(client, "not_joined", "send hello first"); return; }
-    if (!g_game.startTransport(p->clientId)) {
-        sendUnicastError(client, "cant_start", "need conductor, a score, and ALONG/DRIVEN mode");
+    const char* target = in["target"] | "";   // LISTEN only: "master"|"players"
+    if (!g_game.startTransport(p->clientId, String(target))) {
+        sendUnicastError(client, "cant_start", "need conductor, a score, and a timed mode");
         return;
     }
     broadcastState();
@@ -264,7 +265,7 @@ void onWsEvent(AsyncWebSocket*       /*server*/,
             else if (!strcmp(t, "selectScore")) handleSelectScore(client, in);
             else if (!strcmp(t, "setMode"))     handleSetMode(client, in);
             else if (!strcmp(t, "assign"))      handleAssign(client, in);
-            else if (!strcmp(t, "start"))       handleStart(client);
+            else if (!strcmp(t, "start"))       handleStart(client, in);
             else if (!strcmp(t, "stop"))        handleStop(client);
             else if (!strcmp(t, "kick"))        handleKick(client, in);
             else {

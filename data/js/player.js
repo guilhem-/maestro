@@ -148,10 +148,10 @@
     return I.list().map(function (x) { return x.id; });
   }
 
-  // In ALONG/DRIVEN the instrument comes from the assigned voice, not the picker.
+  // In ALONG/DRIVEN/LISTEN the instrument comes from the assigned voice.
   function isInstrumentDictated() {
     var m = lastState && lastState.mode;
-    return (m === 'ALONG' || m === 'DRIVEN');
+    return (m === 'ALONG' || m === 'DRIVEN' || m === 'LISTEN');
   }
 
   function scheduleProfileSend() {
@@ -305,6 +305,7 @@
     else if (mode === 'FREEPLAY') buildFreePlay(stage);
     else if (mode === 'ALONG')    buildAlong(stage);
     else if (mode === 'DRIVEN')   buildDriven(stage);
+    else if (mode === 'LISTEN')   buildListen(stage);
     else                          buildLobby(stage);
 
     toggleProfile(mode === 'LOBBY' || mode === 'FREE' || mode === 'FREEPLAY');
@@ -552,6 +553,60 @@
     sizeCanvas();
   }
 
+  // ---- Listen Only ---------------------------------------------------------
+  // The piece auto-plays. With target "players", THIS device sounds its assigned
+  // voice (scheduled via Web Audio off the shared transport clock); with target
+  // "master" the conductor device plays everything and we just watch. Either
+  // way, if we have a part we show it as a falling-note visualizer.
+  function buildListen(stage) {
+    if (!myVoice) {
+      var lw = el('div', 'lobby');
+      lw.appendChild(el('div', 'lobby__icon', '🎧'));
+      lw.appendChild(el('div', 'lobby__title', 'Listening'));
+      lw.appendChild(el('div', 'lobby__sub', curScore ? ('Enjoy ' + curScore.title) : 'The conductor will play a piece.'));
+      stage.appendChild(lw);
+      return;
+    }
+    var w = el('div', 'driven');
+    var head = el('div', 'partbar'); head.style.setProperty('--pad', profile.color);
+    head.appendChild(el('span', 'partbar__icon', I.icon(effInstr)));
+    head.appendChild(el('span', 'partbar__name', '🎧 ' + myVoice.name + ' · ' + I.label(effInstr)));
+    w.appendChild(head);
+    var lane = el('div', 'lane');
+    els.canvas = document.createElement('canvas'); els.canvas.className = 'lane__canvas';
+    lane.appendChild(els.canvas);
+    w.appendChild(lane);
+    w.appendChild(el('div', 'free__hint', 'Sit back — the piece plays itself'));
+    stage.appendChild(w);
+    sizeCanvas();
+  }
+
+  var listenSources = [], listenKey = -1;
+  function stopListen() { listenSources.forEach(function (s) { try { s.stop(); } catch (e) {} }); listenSources = []; }
+  function handleListen() {
+    var s = lastState, tr = transport();
+    // Only the "players" target plays locally; stop whenever the run ends/changes.
+    if (!(s && s.mode === 'LISTEN' && tr.running)) { listenKey = -1; stopListen(); return; }
+    if (tr.target !== 'players' || !myVoice || !instrReady || !conn || !conn.synced()) return;
+    if (tr.startAtMs === listenKey) return;     // already scheduled this run
+    listenKey = tr.startAtMs;
+    scheduleListen(tr);
+  }
+  function scheduleListen(tr) {
+    stopListen();
+    if (!myVoice || !effInstr) return;
+    var ctx = I.audioCtx();
+    var ctxStart = ctx.currentTime + Math.max(0, (tr.startAtMs - conn.serverNow()) / 1000);
+    var nowCtx = ctx.currentTime;
+    for (var i = 0; i < myVoice.notes.length; i++) {
+      var n = myVoice.notes[i];
+      var when = ctxStart + n.t / 1000;
+      if (when < nowCtx - 0.05) continue;       // don't dump already-past notes
+      var src = I.play(effInstr, n.m, when, 0.95, null, n.d);
+      if (src) listenSources.push(src);
+    }
+  }
+
   function bindPad(node, mode) {
     node.addEventListener('pointerdown', function (e) { e.preventDefault(); tapPlay(mode); });
     node.addEventListener('contextmenu', function (e) { e.preventDefault(); });
@@ -581,8 +636,9 @@
     else hideCountdown();
 
     if (mode === 'ALONG' && myVoice) updateAlong(pos);
-    if (mode === 'DRIVEN' && myVoice && els.canvas) drawLane(pos);
+    if ((mode === 'DRIVEN' || mode === 'LISTEN') && myVoice && els.canvas) drawLane(pos);
     if (mode === 'FREEPLAY' && els.canvas) { var nowp = performance.now(); updateFreePlay(nowp); drawFreePlay(nowp); }
+    if (mode === 'LISTEN') handleListen();
   }
 
   function showCountdown(n) {
@@ -789,8 +845,11 @@
     els.modePill.textContent = modeLabel(mode);
     els.modePill.className = 'modepill modepill--' + mode.toLowerCase();
     els.conn.textContent = (conn && conn.synced() ? '🟢' : '🟡') + ' ' + online + '/' + total + ' musicians';
+    // Offer the podium whenever the conductor seat is empty (the server frees it
+    // after the grace period when a conductor leaves).
+    if (els.claimHost) els.claimHost.hidden = !!(lastState && lastState.adminId && lastState.adminId.length);
   }
-  function modeLabel(m) { return ({ LOBBY: 'Lobby', FREE: 'Test Play', FREEPLAY: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes' })[m] || m; }
+  function modeLabel(m) { return ({ LOBBY: 'Lobby', FREE: 'Test Play', FREEPLAY: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes', LISTEN: 'Listen Only' })[m] || m; }
   function flashConn(msg) { if (els.conn) { els.conn.textContent = '⚠️ ' + msg; } }
 
   function showConductorBanner() {
@@ -813,6 +872,8 @@
     els.instrWrap = $('instr-wrap');
     els.conn    = $('conn');
     els.modePill = $('mode-pill');
+    els.claimHost = $('claim-host');
+    if (els.claimHost) els.claimHost.addEventListener('click', function () { window.location.href = '/admin'; });
 
     var saved = NET.loadProfile();
     if (saved.name) profile.name = saved.name;

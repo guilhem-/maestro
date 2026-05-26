@@ -79,6 +79,23 @@ def voice(vid, name, instrument, tempo, seq, gap=0.06):
     return {"id": vid, "name": name, "instrument": instrument, "notes": notes}, round(t)
 
 
+def beats(seq):
+    """Total beats of a flat note/duration sequence."""
+    return sum(seq[1::2])
+
+
+def drone(vid, name, instrument, tempo, roots, total_beats, beat_per=2.0):
+    """A bass/accompaniment voice that cycles `roots`, each `beat_per` beats,
+    filling exactly `total_beats` — so it stays length-aligned with the melody
+    it accompanies (the looper repeats every voice over a common period)."""
+    seq, t, i = [], 0.0, 0
+    while t < total_beats - 1e-6:
+        d = min(beat_per, total_beats - t)
+        seq += [roots[i % len(roots)], d]
+        t += d; i += 1
+    return voice(vid, name, instrument, tempo, seq)
+
+
 def write(score):
     fn = score["id"] + ".json"
     with open(fn, "w") as f:
@@ -224,6 +241,88 @@ scores.append(build(
     T, [mel, bass, birds]))
 
 # ============================================================================
+# 6. Beethoven — Für Elise (opening), A minor. Bass auto-aligned via drone().
+# ============================================================================
+T = 120
+fe = [
+    "E5",0.5,"D#5",0.5,"E5",0.5,"D#5",0.5,"E5",0.5,"B4",0.5,"D5",0.5,"C5",0.5,
+    "A4",1, R,0.5, "C4",0.5,"E4",0.5,"A4",0.5, "B4",1, R,0.5,
+    "E4",0.5,"G#4",0.5,"B4",0.5, "C5",1, R,0.5, "E4",0.5,
+    "E5",0.5,"D#5",0.5,"E5",0.5,"D#5",0.5,"E5",0.5,"B4",0.5,"D5",0.5,"C5",0.5,
+    "A4",1, R,0.5, "C4",0.5,"E4",0.5,"A4",0.5, "B4",1, R,0.5,
+    "E4",0.5,"C5",0.5,"B4",0.5, "A4",1.5, R,0.5,
+]
+mel = voice("melody", "Melody", "piano", T, fe)
+bass = drone("bass", "Bass", "harp", T, ["A3", "E3", "A3", "E3"], beats(fe), 2.0)
+scores.append(build(
+    {"id": "fur-elise", "title": "Für Elise", "composer": "Beethoven"},
+    T, [mel, bass]))
+
+# ============================================================================
+# 7. Grieg — In the Hall of the Mountain King, creeping theme.
+# ============================================================================
+T = 120
+hm = [
+    "E4",0.5,"F#4",0.5,"G4",0.5,"A4",0.5,"G4",0.5,"B4",0.5,"A4",1,
+    "E4",0.5,"F#4",0.5,"G4",0.5,"A4",0.5,"G4",0.5,"B4",0.5,"A4",1,
+    "B4",0.5,"C5",0.5,"D5",0.5,"E5",0.5,"D5",0.5,"F5",0.5,"E5",1,
+    "B4",0.5,"C5",0.5,"D5",0.5,"E5",0.5,"D5",0.5,"F5",0.5,"E5",1,
+]
+mel = voice("melody", "Melody", "marimba", T, hm)
+bass = drone("bass", "Bass", "organ", T, ["E3", "E3", "B3", "B3"], beats(hm), 2.0)
+scores.append(build(
+    {"id": "mountain-king", "title": "In the Hall of the Mountain King", "composer": "Grieg"},
+    T, [mel, bass]))
+
+# ============================================================================
+# 8. Rossini — William Tell Overture (finale gallop).
+# ============================================================================
+T = 132
+wt = [
+    "E4",0.5,"E4",0.5,"E4",1, "E4",0.5,"E4",0.5,"E4",1,
+    "E4",0.5,"E4",0.5,"A4",0.5,"A4",0.5, "B4",0.5,"B4",0.5,"E5",1,
+    "E4",0.5,"E4",0.5,"E4",1, "E4",0.5,"E4",0.5,"E4",1,
+    "E4",0.5,"A4",0.5,"B4",0.5,"C5",0.5, "B4",0.5,"A4",0.5,"E4",1,
+]
+mel = voice("melody", "Melody", "guitar", T, wt)
+bass = drone("bass", "Bass", "strings", T, ["A3", "A3", "E3", "E3"], beats(wt), 2.0)
+scores.append(build(
+    {"id": "william-tell", "title": "William Tell (Finale)", "composer": "Rossini"},
+    T, [mel, bass]))
+
+# ============================================================================
+# 9. Brahms — Lullaby (Wiegenlied), gentle.
+# ============================================================================
+T = 96
+bl = [
+    "E4",0.5,"E4",0.5,"G4",1, "E4",0.5,"E4",0.5,"G4",1,
+    "E4",0.5,"G4",0.5,"C5",1,"B4",0.5,"A4",0.5,"G4",1,
+    "D4",0.5,"D4",0.5,"E4",0.5,"F4",0.5,"G4",1, R,1,
+    "D4",0.5,"D4",0.5,"E4",0.5,"F4",0.5,"G4",1, R,1,
+]
+mel = voice("melody", "Melody", "flute", T, bl)
+bass = drone("bass", "Bass", "harp", T, ["C3", "G3", "C3", "G3"], beats(bl), 2.0)
+scores.append(build(
+    {"id": "brahms-lullaby", "title": "Brahms' Lullaby", "composer": "Brahms"},
+    T, [mel, bass]))
+
+# ============================================================================
+# 10. Tchaikovsky — Swan Lake (theme), B minor.
+# ============================================================================
+T = 100
+sl = [
+    "B4",1.5,"F#5",0.5,"E5",0.5,"D5",0.5,"C#5",0.5,"B4",0.5,
+    "C#5",1,"D5",1, "C#5",1,"B4",1,
+    "B4",1.5,"F#5",0.5,"E5",0.5,"D5",0.5,"C#5",0.5,"B4",0.5,
+    "C#5",1,"A#4",1, "B4",2,
+]
+mel = voice("melody", "Melody", "strings", T, sl)
+bass = drone("bass", "Bass", "organ", T, ["B3", "F#3", "B3", "F#3"], beats(sl), 2.0)
+scores.append(build(
+    {"id": "swan-lake", "title": "Swan Lake (Theme)", "composer": "Tchaikovsky"},
+    T, [mel, bass]))
+
+# ============================================================================
 # Emit files + manifest.
 # ============================================================================
 print("Generating scores…")
@@ -233,6 +332,7 @@ for s in scores:
     manifest.append({
         "id": s["id"], "title": s["title"], "composer": s["composer"],
         "file": s["id"] + ".json",
+        "parts": len(s["voices"]),          # number of instrument voices (musicians)
     })
 
 with open("manifest.json", "w") as f:

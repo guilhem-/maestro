@@ -53,6 +53,7 @@ const char* modeToStr(Mode m) {
         case Mode::FREEPLAY: return "FREEPLAY";
         case Mode::ALONG:    return "ALONG";
         case Mode::DRIVEN:   return "DRIVEN";
+        case Mode::LISTEN:   return "LISTEN";
         case Mode::LOBBY:
         default:             return "LOBBY";
     }
@@ -63,6 +64,7 @@ bool parseMode(const String& s, Mode& out) {
     else if (s == "FREEPLAY") out = Mode::FREEPLAY;
     else if (s == "ALONG")    out = Mode::ALONG;
     else if (s == "DRIVEN")   out = Mode::DRIVEN;
+    else if (s == "LISTEN")   out = Mode::LISTEN;
     else if (s == "LOBBY")    out = Mode::LOBBY;
     else return false;
     return true;
@@ -277,9 +279,10 @@ bool GameState::selectScore(const String& adminClientId, const String& scoreIdIn
     scoreId_   = scoreId;
     // Changing the piece stops the transport and clears voice assignments — the
     // new score has different parts.
-    running_   = false;
-    startAtMs_ = 0;
-    introMs_   = 0;
+    running_    = false;
+    startAtMs_  = 0;
+    introMs_    = 0;
+    playTarget_ = "";
     for (auto& p : players_) { if (p.used) p.voiceId = ""; }
     portEXIT_CRITICAL(&mux_);
     return true;
@@ -294,10 +297,11 @@ bool GameState::setMode(const String& adminClientId, const String& modeStr) {
         portEXIT_CRITICAL(&mux_);
         return false;
     }
-    mode_      = m;
-    running_   = false;
-    startAtMs_ = 0;
-    introMs_   = 0;
+    mode_       = m;
+    running_    = false;
+    startAtMs_  = 0;
+    introMs_    = 0;
+    playTarget_ = "";
     portEXIT_CRITICAL(&mux_);
     return true;
 }
@@ -323,20 +327,26 @@ bool GameState::assignVoice(const String& adminClientId,
     return true;
 }
 
-bool GameState::startTransport(const String& adminClientId) {
+bool GameState::startTransport(const String& adminClientId, const String& target) {
     portENTER_CRITICAL(&mux_);
     if (adminClientId.length() == 0 || adminClientId != adminId_) {
         portEXIT_CRITICAL(&mux_);
         return false;
     }
     // A transport run only makes sense for the timed modes with a score loaded.
-    if (scoreId_.length() == 0 || (mode_ != Mode::ALONG && mode_ != Mode::DRIVEN)) {
+    if (scoreId_.length() == 0 ||
+        (mode_ != Mode::ALONG && mode_ != Mode::DRIVEN && mode_ != Mode::LISTEN)) {
         portEXIT_CRITICAL(&mux_);
         return false;
     }
-    running_   = true;
-    startAtMs_ = millis() + Config::COUNTDOWN_MS;
-    introMs_   = (mode_ == Mode::ALONG) ? Config::ALONG_INTRO_MS : 0;
+    running_    = true;
+    startAtMs_  = millis() + Config::COUNTDOWN_MS;
+    introMs_    = (mode_ == Mode::ALONG) ? Config::ALONG_INTRO_MS : 0;
+    // Listen-only target: where the auto-playback sounds. Anything other than
+    // "players" defaults to "master".
+    playTarget_ = (mode_ == Mode::LISTEN)
+                      ? (target == "players" ? "players" : "master")
+                      : "";
     resetRunStatsLocked_();
     portEXIT_CRITICAL(&mux_);
     return true;
@@ -348,9 +358,10 @@ bool GameState::stopTransport(const String& adminClientId) {
         portEXIT_CRITICAL(&mux_);
         return false;
     }
-    running_   = false;
-    startAtMs_ = 0;
-    introMs_   = 0;
+    running_    = false;
+    startAtMs_  = 0;
+    introMs_    = 0;
+    playTarget_ = "";
     portEXIT_CRITICAL(&mux_);
     return true;
 }
@@ -438,6 +449,7 @@ void GameState::serializeState(JsonObject root) {
     tr["running"]   = running_;
     tr["startAtMs"] = startAtMs_;
     tr["introMs"]   = introMs_;
+    tr["target"]    = playTarget_;   // LISTEN only: "master" | "players" | ""
 
     JsonArray arr = root["players"].to<JsonArray>();
     for (const auto& p : players_) {

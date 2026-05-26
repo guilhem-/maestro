@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Maestro C3 is firmware for a single ESP32-C3 that turns a roomful of phones into
 a **wireless orchestra**. Phones join an open WiFi soft-AP ("Maestro",
 `192.168.4.1`); each phone becomes an *instrument*. One device claims `/admin`
-and conducts: it picks one of 5 public-domain classical pieces and one of 4 game
-modes. PlatformIO + Arduino framework; web UI served from a LittleFS partition.
+and conducts: it picks one of 10 public-domain classical pieces and one of 5
+game modes. PlatformIO + Arduino framework; web UI served from a LittleFS partition.
 
 It is a sibling of `../quizhub` and deliberately reuses its proven plumbing
 (soft-AP + captive portal, the `/ws` broadcast-snapshot pattern, NVS profiles,
@@ -105,7 +105,7 @@ shared across three layers: the server FSM (`GameState`/`WsHub`), the musician U
 rename or reshape a field in one layer without updating all three and the
 comment block in `WsHub.h`.** Receivers must ignore unknown `t` values.
 
-### The four modes
+### The five modes
 
 - **FREE ("Test Play")** — each musician picks an instrument (the list is derived
   from the selected score's voices) and taps a button to play a **random
@@ -132,13 +132,29 @@ comment block in `WsHub.h`.** Receivers must ignore unknown `t` values.
   contour. Tapping within ±300 ms of the gate plays the correct pitch/length,
   else random. No audible guide (`introMs` = 0).
 
+- **LISTEN ("Listen Only")** — the piece auto-plays, no tapping. The conductor
+  chooses the audio `target` via two buttons: `"master"` (the podium plays all
+  voices in full through `scheduleVoiceFull`) or `"players"` (each phone
+  auto-schedules its own assigned voice off the transport clock — `handleListen`
+  / `scheduleListen` in `player.js`). The target rides on the `start` message
+  and in `transport.target`.
+
 **Auto-play empty parts** (conductor toggle, `admin.js`, both timed modes): the
 podium performs every voice with no assigned online musician — full piece,
 correct pitch/length — through its own bus, so a small group can still cover a
 multi-part score. It partitions cleanly with the ALONG lead-in guide (assigned
 voices get the fading guide; empty voices get the full auto-fill).
 
-Pieces loop to ≥60 s; the conductor presses Stop to end early. Per-musician
+Pieces loop to ≥60 s (`make-scores.py` `TARGET_MS`); to make the end identical on
+every device, the conductor UI sends a single `stop` once `scorePos` passes
+`lengthMs` (one server stop halts everyone together). The scores manifest also
+carries a `parts` count (number of voices) shown on each podium score card.
+
+While the conductor seat is empty, every musician page shows a pulsing "Become
+the conductor" button (`#claim-host`, toggled by `state.adminId`) that loads
+`/admin`; the seat is freed for it `ADMIN_GRACE_MS` after a conductor drops.
+
+Per-musician
 hit/miss counters in `state` only refresh on structural changes (the `play`
 edge event is intentionally cheap), so the conductor UI tallies live from `note`
 events.

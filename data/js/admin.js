@@ -21,6 +21,7 @@
   var cardsById = {};
   var live = {};           // playerId -> {hits,misses}  (live tally this run)
   var runKey = 0;
+  var autoStopSent = false; // end-of-piece auto-stop fired for the current run?
 
   // Guide / accompaniment playback. `guideReady` means every instrument in the
   // score is precomputed (needed for the ALONG lead-in guide AND for auto-fill).
@@ -42,6 +43,7 @@
     els.status = $('status'); els.modePill = $('mode-pill');
     els.scoreRow = $('score-row'); els.modeRow = $('mode-row');
     els.btnStart = $('btn-start'); els.btnStop = $('btn-stop');
+    els.btnListenMaster = $('btn-listen-master'); els.btnListenPlayers = $('btn-listen-players');
     els.transport = $('transport-bar'); els.tStatus = $('transport-status');
     els.grid = $('player-grid'); els.empty = $('empty-msg');
     els.cue = $('cue'); els.cueList = $('cue-list');
@@ -72,6 +74,7 @@
       var c = el('button', 'score-card'); c.type = 'button'; c.setAttribute('data-score', s.id);
       c.appendChild(el('div', 'score-card__title', s.title));
       c.appendChild(el('div', 'score-card__composer', s.composer || ''));
+      if (s.parts) c.appendChild(el('div', 'score-card__parts', '🎻 ' + s.parts + (s.parts > 1 ? ' parts' : ' part')));
       c.addEventListener('click', function () { if (curScoreId !== s.id) send({ t: 'selectScore', scoreId: s.id }); });
       els.scoreRow.appendChild(c);
     });
@@ -86,7 +89,8 @@
     ['FREEPLAY', '🎶 Free Play',   'Touch to make music'],
     ['FREE',     '🎲 Test Play',   'Tap = random note'],
     ['ALONG',    '🎺 Play Along',  'Follow the conductor'],
-    ['DRIVEN',   '🎯 Follow Notes', 'Catch falling notes']
+    ['DRIVEN',   '🎯 Follow Notes', 'Catch falling notes'],
+    ['LISTEN',   '🎧 Listen Only', 'Auto-play the piece']
   ];
   function buildModeButtons() {
     els.modeRow.innerHTML = '';
@@ -107,6 +111,12 @@
   function installHandlers() {
     els.btnStart.addEventListener('click', function () { if (!els.btnStart.disabled) { I.unlock(); send({ t: 'start' }); } });
     els.btnStop.addEventListener('click', function () { send({ t: 'stop' }); });
+    els.btnListenMaster.addEventListener('click', function () {
+      if (els.btnListenMaster.disabled) return; I.unlock(); send({ t: 'start', target: 'master' });
+    });
+    els.btnListenPlayers.addEventListener('click', function () {
+      if (els.btnListenPlayers.disabled) return; send({ t: 'start', target: 'players' });
+    });
     els.btnAuto.addEventListener('click', autoAssign);
     if (els.btnReload) els.btnReload.addEventListener('click', function () { location.reload(); });
     if (els.chkAutofill) els.chkAutofill.addEventListener('change', function () {
@@ -148,7 +158,7 @@
     // Reset live tallies when a new run starts.
     var tr = s.transport || {};
     var key = tr.running ? tr.startAtMs : 0;
-    if (key !== runKey) { runKey = key; live = {}; }
+    if (key !== runKey) { runKey = key; live = {}; autoStopSent = false; }
 
     markScoreCards(); markModeButtons();
     handleTransport();
@@ -180,22 +190,34 @@
   // ===========================================================================
   function renderAll() {
     var mode = (lastState && lastState.mode) || 'LOBBY';
-    els.modePill.textContent = ({ LOBBY: 'Lobby', FREE: 'Test Play', FREEPLAY: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes' })[mode] || mode;
+    els.modePill.textContent = ({ LOBBY: 'Lobby', FREE: 'Test Play', FREEPLAY: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes', LISTEN: 'Listen Only' })[mode] || mode;
     els.modePill.className = 'modepill modepill--' + mode.toLowerCase();
 
-    var timed = (mode === 'ALONG' || mode === 'DRIVEN');
+    var listen = (mode === 'LISTEN');
+    var timed = (mode === 'ALONG' || mode === 'DRIVEN' || listen);
     els.transport.hidden = !timed;
     els.assignBar.hidden = !timed;
     els.cue.hidden = (mode !== 'ALONG');
 
     if (els.chkAutofill) els.chkAutofill.checked = autofillOn;
     var tr = (lastState && lastState.transport) || {};
-    var needReady = (mode === 'ALONG') || autofillOn;   // any device-played audio?
-    var canStart = timed && !!curScoreId && !tr.running && (!needReady || guideReady);
-    els.btnStart.disabled = !canStart;
+
+    // Normal Start (ALONG/DRIVEN) vs the two Listen-Only buttons.
+    els.btnStart.hidden = listen;
+    els.btnListenMaster.hidden = !listen;
+    els.btnListenPlayers.hidden = !listen;
+
+    var needReady = (mode === 'ALONG') || autofillOn;    // master-played audio for ALONG/DRIVEN?
+    els.btnStart.disabled = listen || !curScoreId || tr.running || (needReady && !guideReady);
+    // "Play on Master" needs all instruments tuned here; "Play on Players" lets
+    // each phone tune its own, so it only needs a piece selected.
+    els.btnListenMaster.disabled  = !(listen && curScoreId && !tr.running && guideReady);
+    els.btnListenPlayers.disabled = !(listen && curScoreId && !tr.running);
     els.btnStop.disabled = !tr.running;
-    if (needReady && curScoreId && !guideReady) els.tStatus.textContent = 'Tuning instruments…';
-    else if (!tr.running) els.tStatus.textContent = timed ? (curScoreId ? 'Ready — press Start' : 'Pick a piece') : '';
+
+    var tuning = (needReady || (listen && !guideReady)) && curScoreId && !guideReady;
+    if (tuning) els.tStatus.textContent = 'Tuning instruments…';
+    else if (!tr.running) els.tStatus.textContent = timed ? (curScoreId ? 'Ready' : 'Pick a piece') : '';
 
     renderGrid();
   }
@@ -304,8 +326,14 @@
       else if (pos != null) {
         var inIntro = mode === 'ALONG' && pos < (tr.introMs || 0);
         var len = curScore ? curScore.lengthMs : 0;
-        if (len && pos > len + 800) els.tStatus.textContent = '🎉 finished';
-        else els.tStatus.textContent = (inIntro ? '🎺 guiding · ' : '🎶 playing · ') + (pos / 1000).toFixed(1) + 's';
+        if (len && pos > len + 800) {
+          els.tStatus.textContent = '🎉 finished';
+          // Stop once at the end so the piece ends at the same moment on every
+          // device (one server stop → all clients halt together).
+          if (!autoStopSent) { autoStopSent = true; send({ t: 'stop' }); }
+        } else {
+          els.tStatus.textContent = (inIntro ? '🎺 guiding · ' : '🎶 playing · ') + (pos / 1000).toFixed(1) + 's';
+        }
       }
     }
 
@@ -370,7 +398,9 @@
   function handleTransport() {
     var mode = lastState && lastState.mode;
     var tr = (lastState && lastState.transport) || {};
-    var needReady = (mode === 'ALONG') || autofillOn;
+    // Audio is produced on THIS device for: the ALONG guide, auto-fill, and
+    // LISTEN "play on master". All need the instruments precomputed first.
+    var needReady = (mode === 'ALONG') || autofillOn || (mode === 'LISTEN' && tr.target === 'master');
     if (tr.running && tr.startAtMs !== schedKey && (!needReady || guideReady)) {
       schedKey = tr.startAtMs;
       scheduleAll(tr);
@@ -385,12 +415,36 @@
     return { ctx: ctx, start: ctx.currentTime + Math.max(0, secs) };
   }
 
+  // Schedule a whole voice (all notes, correct pitch + length) on a bus.
+  function scheduleVoiceFull(v, ctxStart, gain, bus, sink) {
+    var nowCtx = I.audioCtx().currentTime;
+    for (var i = 0; i < v.notes.length; i++) {
+      var n = v.notes[i];
+      var when = ctxStart + n.t / 1000;
+      if (when < nowCtx - 0.05) continue;
+      var s = I.play(v.instrument, n.m, when, gain, bus, n.d);
+      if (s) sink.push(s);
+    }
+  }
+
   function scheduleAll(tr) {
     stopAll();
     if (!curScore || !conn) return;
     var a = ctxStartFor(tr), ctx = a.ctx, ctxStart = a.start;
     var mode = lastState.mode;
     var assigned = assignedVoiceIds();
+
+    // Listen Only: "master" → this device plays ALL voices in full; "players" →
+    // each phone plays its own part, so the podium stays silent.
+    if (mode === 'LISTEN') {
+      if (tr.target === 'master') {
+        fillBus = ctx.createGain();
+        fillBus.gain.value = 0.7;
+        fillBus.connect(I.master());
+        curScore.voices.forEach(function (v) { scheduleVoiceFull(v, ctxStart, 0.8, fillBus, fillSources); });
+      }
+      return;
+    }
 
     // ALONG lead-in guide: play the piece for `introMs`, then fade. Voices that
     // auto-fill will carry fully are left out here (so they don't double up).

@@ -24,7 +24,7 @@ perceived level) and the whole output runs through a limiter, so no single timbr
 saturates the speakers and stacked notes never clip. A correctly-played note also
 sounds for its **scored length**, so quarter notes are crisper than half notes.
 
-## The four modes
+## The five modes
 
 | Mode | What musicians do | Pitch is correct when… |
 |------|-------------------|------------------------|
@@ -32,6 +32,7 @@ sounds for its **scored length**, so quarter notes are crisper than half notes.
 | 🎲 **Test Play** | Pick an instrument and tap a button — a sound check / warm-up | always random (4th octave) |
 | 🎺 **Play Along** | The conductor's device plays the tune for 10 s, then fades; musicians keep it going by ear while the conductor directs | you tap within **±0.5 s** of your note |
 | 🎯 **Follow Notes** | Notes fall down a lane toward a gate; **horizontal position shows pitch** (low ← → high), so the falling dots trace the melody; tap as each one lands | you tap within **±0.3 s** of the gate |
+| 🎧 **Listen Only** | Nobody taps — the piece plays itself. The conductor picks **Play on Master** (everything plays on the podium device) or **Play on Players** (each phone auto-plays its assigned part). | n/a — automatic playback |
 
 When you're off the beat, a random note plays instead — so the orchestra always
 *sounds* like an orchestra, it just gets gloriously better as everyone locks in.
@@ -39,19 +40,26 @@ When you're off the beat, a random note plays instead — so the orchestra alway
 Each piece loops to **at least a minute** of music, so one "Start" gives the room
 a proper performance rather than a snippet.
 
-## The 5 pieces
+## The 10 pieces
 
-All public-domain compositions, transcribed as simple melodies:
+All public-domain compositions, transcribed as simple melodies and looped to at
+least a minute:
 
 - **Ode to Joy** — Beethoven
 - **Eine kleine Nachtmusik** — Mozart
 - **Minuet in G** — Bach (Petzold)
 - **Canon in D** — Pachelbel
 - **Spring (La Primavera)** — Vivaldi
+- **Für Elise** — Beethoven
+- **In the Hall of the Mountain King** — Grieg
+- **William Tell (Finale)** — Rossini
+- **Brahms' Lullaby** — Brahms
+- **Swan Lake (Theme)** — Tchaikovsky
 
-Each piece has 2–3 *voices* (e.g. melody, bass, sparkle). In Free Play the
-instrument list you can choose from is drawn from the selected piece; in the
-timed modes the conductor assigns each musician a voice.
+Each piece has 2–3 *voices* (e.g. melody, bass, sparkle); the podium shows how
+many parts each piece has so you can match it to your group size. In the timed
+modes the conductor assigns each musician a voice; in Test Play the instrument
+list is drawn from the selected piece's voices.
 
 ## Hardware
 
@@ -89,15 +97,21 @@ Open a serial monitor to confirm the AP came up:
    on a computer).
 2. Each musician types a name and picks a colour.
 3. One device opens <http://192.168.4.1/admin> — **the first browser to claim it
-   becomes the conductor**; everyone else stays a musician. To hand off, close
-   the podium tab and reload on the new device.
+   becomes the conductor**; everyone else stays a musician. While no conductor is
+   active, every musician sees a pulsing **"🎩 Become the conductor"** button and
+   can claim the podium with one tap. If the conductor leaves, the seat is held
+   for ~20 s (so a reload keeps it) and then offered to everyone again.
 4. On the podium: **① choose a piece → ② choose a mode**.
    - *Free Play*: a multi-touch falling-note instrument — musicians play
      immediately, no assignment needed.
    - *Test Play*: musicians pick an instrument and tap to sound-check.
    - *Play Along* / *Follow Notes*: **③ assign parts** (tap **Auto-assign** or
      use each musician's voice dropdown), then press **▶ Start**. A 3-2-1
-     countdown gets the whole room going together.
+     countdown gets the whole room going together, and the piece ends on every
+     device at the same moment.
+   - *Listen Only*: assign parts (optional), then **🔊 Play on Master** (hear the
+     whole piece from the podium) or **📱 Play on Players** (each phone plays its
+     assigned part in sync).
 5. In *Play Along*, watch the **Conductor cue** — it shows who plays what about
    1.5 seconds ahead so you can point at the right musician on the beat.
 6. Short on musicians? Tick **🎹 Auto-play empty parts** in the transport bar:

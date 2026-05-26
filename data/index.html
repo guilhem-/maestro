@@ -15,6 +15,10 @@
     <div id="conn" class="conn">connecting…</div>
   </header>
 
+  <!-- Shown only while the conductor seat is empty (no host, or the host left
+       and the grace period elapsed). Tapping it claims the podium. -->
+  <button id="claim-host" class="claim-host" type="button" hidden>🎩 Become the conductor</button>
+
   <main id="stage" class="stage"><!-- built by player.js, swapped per mode --></main>
 
   <section id="profile" class="profile">

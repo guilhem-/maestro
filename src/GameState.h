@@ -40,8 +40,10 @@ struct Player {
 
 // FREE     = "Test Play": tap a button, random 4th-octave note.
 // FREEPLAY = "Free Play": multi-touch falling-note instrument (client-side).
-// Neither uses the transport; ALONG/DRIVEN do.
-enum class Mode : uint8_t { LOBBY, FREE, FREEPLAY, ALONG, DRIVEN };
+// LISTEN   = "Listen Only": the piece auto-plays (no tapping) — either on the
+//            conductor device (all voices) or on each player device (its part).
+// FREE/FREEPLAY use no transport; ALONG/DRIVEN/LISTEN do.
+enum class Mode : uint8_t { LOBBY, FREE, FREEPLAY, ALONG, DRIVEN, LISTEN };
 
 class GameState {
 public:
@@ -78,10 +80,11 @@ public:
                      const String& targetId,
                      const String& voiceId);
 
-    // Begin the transport: requires a selected score and ALONG/DRIVEN mode.
-    // Sets startAtMs = now + COUNTDOWN_MS and introMs per mode, zeroes per-run
-    // stats. Returns false if preconditions aren't met.
-    bool startTransport(const String& adminClientId);
+    // Begin the transport: requires a selected score and ALONG/DRIVEN/LISTEN
+    // mode. Sets startAtMs = now + COUNTDOWN_MS and introMs per mode, zeroes
+    // per-run stats. `target` ("master"/"players") only applies to LISTEN; it
+    // selects which device(s) auto-play. Returns false if preconditions fail.
+    bool startTransport(const String& adminClientId, const String& target);
     bool stopTransport (const String& adminClientId);
 
     // Record a played note for stats (any mode). `correct` is the client's
@@ -111,6 +114,7 @@ private:
     bool     running_   = false;
     uint32_t startAtMs_ = 0;
     uint32_t introMs_   = 0;
+    String   playTarget_;               // LISTEN only: "master" | "players"
 
     String   adminId_;
     uint32_t adminWsClientId_     = 0;
