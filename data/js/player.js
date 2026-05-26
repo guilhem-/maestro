@@ -370,9 +370,19 @@
   function pcName(m) { return I.noteName(m).replace(/-?\d+$/, ''); }
   function isSharp(m) { var s = ((m % 12) + 12) % 12; return s === 1 || s === 3 || s === 6 || s === 8 || s === 10; }
   function fpColForX(x, W) { var n = FP_COLS.length; return Math.max(0, Math.min(n - 1, Math.floor(x / (W / n)))); }
-  function fpNewNote(col) {
+  // The lane geometry in CSS px (must mirror drawFreePlay's device-px layout).
+  function fpGeom(cv) { var h = cv.clientHeight; var labelH = 28, gateY = h - 54; return { labelH: labelH, gateY: gateY, travel: Math.max(1, gateY - labelH) }; }
+  // Vertical touch position → time the note still falls before the gate, so it
+  // is born under the finger (touch lower ⇒ shorter fall ⇒ sounds sooner).
+  function fpLeadForY(y, cv) {
+    var g = fpGeom(cv);
+    var lead = (g.gateY - y) * FP_LEAD / g.travel;
+    return Math.max(0, Math.min(FP_LEAD, lead));
+  }
+  function fpNewNote(col, lead) {
     var now = performance.now();
-    var o = { col: col, pitch: FP_COLS[col], startClock: now, endClock: null, playClock: now + FP_LEAD, played: false };
+    if (lead == null) lead = FP_LEAD;
+    var o = { col: col, pitch: FP_COLS[col], startClock: now, endClock: null, playClock: now + lead, played: false };
     fpNotes.push(o);
     return o;
   }
@@ -400,16 +410,18 @@
   }
 
   function bindFreePointers(cv) {
-    function ptX(e) { var r = cv.getBoundingClientRect(); return e.clientX - r.left; }
+    function pt(e) { var r = cv.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; }
     cv.addEventListener('pointerdown', function (e) {
       e.preventDefault(); I.unlock();
       try { cv.setPointerCapture(e.pointerId); } catch (_) {}
-      fpPointers[e.pointerId] = fpNewNote(fpColForX(ptX(e), cv.clientWidth));
+      var p = pt(e);
+      fpPointers[e.pointerId] = fpNewNote(fpColForX(p.x, cv.clientWidth), fpLeadForY(p.y, cv));
     });
     cv.addEventListener('pointermove', function (e) {
       var cur = fpPointers[e.pointerId]; if (!cur) return;
-      var col = fpColForX(ptX(e), cv.clientWidth);
-      if (col !== cur.col) { fpFinalize(cur); fpPointers[e.pointerId] = fpNewNote(col); }
+      var p = pt(e);
+      var col = fpColForX(p.x, cv.clientWidth);
+      if (col !== cur.col) { fpFinalize(cur); fpPointers[e.pointerId] = fpNewNote(col, fpLeadForY(p.y, cv)); }
     });
     function endP(e) { var cur = fpPointers[e.pointerId]; if (cur) { fpFinalize(cur); delete fpPointers[e.pointerId]; } }
     cv.addEventListener('pointerup', endP);
