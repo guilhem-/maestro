@@ -53,12 +53,19 @@
 //       per-player hit/miss stats. `correct` is the client's own timing verdict
 //       (it has the best local timing); the server trusts it for stats.
 //
+//   { "t": "react", "emoji": "<str>" }
+//     - Musician sent a reaction (applause/emoji). Pure social fan-out: the
+//       server rebroadcasts it as a `react` event (below) for everyone's screen.
+//       No state change, no stats. Edge event — keep the hot path tiny.
+//
 //   --- conductor (admin) only ---
 //   { "t": "selectScore", "scoreId": "<id>" }     // load a piece (stops transport)
-//   { "t": "setMode", "mode": "FREE"|"FREEPLAY"|"ALONG"|"DRIVEN"|"LISTEN" }  // (stops transport)
+//   { "t": "setMode", "mode": "FREE"|"FREEPLAY"|"ALONG"|"DRIVEN"|"LISTEN"|"SCORE" }  // (stops transport)
 //        - FREE = "Test Play" (tap → random note); FREEPLAY = "Free Play"
 //          (multi-touch falling-note instrument, judged client-side); LISTEN =
-//          "Listen Only" (the piece auto-plays, no tapping).
+//          "Listen Only" (the piece auto-plays, no tapping); SCORE = "Read
+//          Score" (each musician sees their assigned voice as a scrollable
+//          piano-roll; read-only, no transport).
 //   { "t": "assign", "pairs": [ {"playerId":"<id>","voiceId":"<str>"}, ... ] }
 //        - Assign musicians to score voices (voiceId "" clears). The conductor
 //          UI computes the distribution (it has the score); the server stores
@@ -105,6 +112,10 @@
 //     "voiceId":"<str>" }
 //     - Edge event fanned out when any musician plays, for the conductor's
 //       live "orchestra activity" view and other phones' ambient note bursts.
+//
+//   { "t": "react", "playerId":"<id>", "emoji":"<str>" }
+//     - Edge event fanned out when a musician sends a reaction, for the shared
+//       emoji burst on every screen.
 //
 //   { "t": "welcome", "yourRole":"player"|"admin", "yourId":"<id>" }
 //     - Unicast response to "hello". Confirms the role actually assigned.

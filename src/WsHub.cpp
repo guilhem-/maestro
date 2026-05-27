@@ -140,6 +140,28 @@ void handlePlay(AsyncWebSocketClient* client, JsonDocument& in) {
     }
 }
 
+// Reactions: pure social fan-out (applause/emoji). No state, no stats — just
+// rebroadcast so every screen shows the burst. Keep it tiny like `play`.
+void handleReact(AsyncWebSocketClient* client, JsonDocument& in) {
+    Player* p = g_game.findByWsId(client->id());
+    if (!p) { sendUnicastError(client, "not_joined", "send hello first"); return; }
+    const char* emoji = in["emoji"] | "";
+    if (!emoji[0]) return;
+    // Cap the forwarded emoji so a rogue client can't fan out a huge string.
+    String e(emoji);
+    if (e.length() > 16) e = e.substring(0, 16);
+    if (s_ws) {
+        JsonDocument d;
+        d["t"]        = "react";
+        d["playerId"] = p->clientId;
+        d["emoji"]    = e;
+        String out;
+        out.reserve(kSmallReserveBytes);
+        serializeJson(d, out);
+        s_ws->textAll(out);
+    }
+}
+
 void handleSelectScore(AsyncWebSocketClient* client, JsonDocument& in) {
     Player* p = g_game.findByWsId(client->id());
     if (!p) { sendUnicastError(client, "not_joined", "send hello first"); return; }
@@ -272,6 +294,7 @@ void onWsEvent(AsyncWebSocket*       /*server*/,
             else if (!strcmp(t, "setProfile"))  handleSetProfile(client, in);
             else if (!strcmp(t, "tsync"))       handleTsync(client, in);
             else if (!strcmp(t, "play"))        handlePlay(client, in);
+            else if (!strcmp(t, "react"))       handleReact(client, in);
             else if (!strcmp(t, "selectScore")) handleSelectScore(client, in);
             else if (!strcmp(t, "setMode"))     handleSetMode(client, in);
             else if (!strcmp(t, "assign"))      handleAssign(client, in);

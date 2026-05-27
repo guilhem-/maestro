@@ -50,7 +50,9 @@
 
   // Live play feedback.
   var combo = 0, bestCombo = 0, hitCount = 0, missCount = 0, perfectCount = 0;
+  var perfectStreak = 0;          // consecutive PERFECTs (drives an in-the-moment badge toast)
   var lastPosWhileRunning = -1;   // last score position seen while running (for the end-of-piece payoff)
+  var rosterEls = {};             // playerId -> roster chip element (pulsed on their notes)
 
   var viewSig = '';          // signature of the currently-built stage
 
@@ -215,7 +217,7 @@
       if (runKey !== 0 && key === 0) maybeCelebrate((lastState && lastState.mode) || '');
       else hideCelebrate();              // a fresh run starting → clear any payoff overlay
       runKey = key;
-      combo = 0; bestCombo = 0; hitCount = 0; missCount = 0; perfectCount = 0;
+      combo = 0; bestCombo = 0; hitCount = 0; missCount = 0; perfectCount = 0; perfectStreak = 0;
       lastPosWhileRunning = -1;
       schedule = (myVoice && myVoice.notes) ? myVoice.notes.map(function (n) {
         return { t: n.t, m: n.m, d: n.d, v: n.v, consumed: false, result: 0 };
@@ -251,7 +253,8 @@
         midi = note.m; correct = true; durMs = note.d; gain = I.velGain(note.v);
         var signed = note.t - pos;                 // >0 you tapped early, <0 late
         var grade = gradeFor(Math.abs(signed), win);
-        if (grade === 'perfect') perfectCount++;
+        if (grade === 'perfect') { perfectCount++; perfectStreak++; maybePerfectStreak(perfectStreak); }
+        else perfectStreak = 0;
         combo++; if (combo > bestCombo) bestCombo = combo; hitCount++;
         gateFlash('hit');
         flashJudge(grade, signed);
@@ -260,7 +263,7 @@
       } else {
         midi = I.randomFourthOctave();
         gain = 0.85;
-        combo = 0; missCount++;
+        combo = 0; perfectStreak = 0; missCount++;
         gateFlash('miss');
         flashJudge('miss', 0);
       }
@@ -329,6 +332,15 @@
     if (effInstr && instrReady) [0, 4, 7, 12].forEach(function (iv, k) { I.play(effInstr, 72 + iv, I.now() + k * 0.05, 0.4, null, 240); });
   }
 
+  // In-the-moment streak reward: a clean run of PERFECTs in a row.
+  function maybePerfectStreak(streak) {
+    if (!(streak === 10 || streak === 25 || (streak > 10 && streak % 25 === 0))) return;
+    if (!els.combofx) { els.combofx = el('div', 'combofx'); document.body.appendChild(els.combofx); }
+    els.combofx.textContent = '💎 ' + streak + ' PERFECT IN A ROW';
+    els.combofx.classList.remove('combofx--show'); void els.combofx.offsetWidth; els.combofx.classList.add('combofx--show');
+    haptic([0, 20, 20, 20, 20, 20]);
+  }
+
   // A warm major chord that swells when a piece you played finishes.
   function playFanfare() {
     if (!effInstr || !instrReady) return;
@@ -353,8 +365,33 @@
     if (tot <= 0) return;
     var len = curScore ? (curScore.lengthMs || 0) : 0;
     if (len && lastPosWhileRunning < len - 2500) return;         // stopped early → no payoff
-    showCelebrate({ acc: Math.round(hitCount / tot * 100), best: bestCombo, perfect: perfectCount, hits: hitCount, total: tot });
+    var acc = Math.round(hitCount / tot * 100);
+    showCelebrate({ acc: acc, best: bestCombo, perfect: perfectCount, hits: hitCount, total: tot,
+                    badges: earnBadges({ acc: acc, best: bestCombo, perfect: perfectCount }) });
     playFanfare();
+  }
+
+  // Badges earned this run (with a `fresh` flag for first-ever), persisted so a
+  // badge is "new" only the first time. Keyed by stat thresholds.
+  var BADGES = [
+    { id: 'finisher',      icon: '🎵', label: 'Finisher',      test: function () { return true; } },
+    { id: 'sharpshooter',  icon: '🎯', label: 'Sharpshooter',  test: function (s) { return s.acc >= 90; } },
+    { id: 'flawless',      icon: '🌟', label: 'Flawless',      test: function (s) { return s.acc >= 100; } },
+    { id: 'combo-master',  icon: '🔥', label: 'Combo Master',  test: function (s) { return s.best >= 25; } },
+    { id: 'perfectionist', icon: '💎', label: 'Perfectionist', test: function (s) { return s.perfect >= 15; } }
+  ];
+  function loadBadges() { try { return JSON.parse(localStorage.getItem('maestro.badges') || '{}') || {}; } catch (e) { return {}; } }
+  function saveBadges(o) { try { localStorage.setItem('maestro.badges', JSON.stringify(o)); } catch (e) {} }
+  function earnBadges(s) {
+    var have = loadBadges(), out = [];
+    BADGES.forEach(function (b) {
+      if (!b.test(s)) return;
+      var fresh = !have[b.id];
+      if (fresh) have[b.id] = 1;
+      out.push({ icon: b.icon, label: b.label, fresh: fresh });
+    });
+    saveBadges(have);
+    return out;
   }
 
   function celStat(num, lbl) {
@@ -374,6 +411,16 @@
     st.appendChild(celStat(String(s.perfect), 'perfect'));
     ov.appendChild(st);
     ov.appendChild(el('div', 'lobby__sub', 'You played ' + s.hits + ' of ' + s.total + ' notes'));
+    if (s.badges && s.badges.length) {
+      var br = el('div', 'badges');
+      s.badges.forEach(function (b) {
+        var chip = el('div', 'badge' + (b.fresh ? ' badge--new' : ''));
+        chip.appendChild(el('span', 'badge__icon', b.icon));
+        chip.appendChild(el('span', 'badge__label', b.label + (b.fresh ? ' ✦' : '')));
+        br.appendChild(chip);
+      });
+      ov.appendChild(br);
+    }
     var btn = el('button', 'btn celebrate__btn', 'Continue'); btn.type = 'button';
     btn.addEventListener('click', hideCelebrate);
     ov.appendChild(btn);
@@ -915,8 +962,10 @@
   // Ambient notes from other musicians (shared visualization)
   // ===========================================================================
   function spawnLocalNote(midi, correct) { spawnNote(profile.color, correct); }
-  function spawnNote(color, correct) {
-    var n = el('div', 'fx-note', Math.random() < 0.5 ? '♪' : '♫');
+  function spawnNote(color, correct, name) {
+    var n = el('div', 'fx-note');
+    n.appendChild(el('span', null, Math.random() < 0.5 ? '♪' : '♫'));
+    if (name) n.appendChild(el('span', 'fx-note__who', name));   // attribute it to a musician
     n.style.color = color || '#b08bff';
     n.style.left = (10 + Math.random() * 80) + 'vw';
     n.style.fontSize = (20 + Math.random() * 22) + 'px';
@@ -963,6 +1012,7 @@
     refreshEffectiveInstrument();
     refreshSwatchAvailability();
     renderStage(false);
+    renderRoster();
     updateConn();
   }
 
@@ -979,11 +1029,49 @@
 
   function onNote(evt) {
     if (!evt || evt.playerId === myId) return;     // our own taps render locally
-    var color = '#b08bff';
+    var color = '#b08bff', name = '';
     if (lastState && lastState.players) {
-      for (var i = 0; i < lastState.players.length; i++) if (lastState.players[i].id === evt.playerId) { color = lastState.players[i].color; break; }
+      for (var i = 0; i < lastState.players.length; i++) if (lastState.players[i].id === evt.playerId) { color = lastState.players[i].color; name = lastState.players[i].name || ''; break; }
     }
-    spawnNote(color, !!evt.correct);
+    pulseRoster(evt.playerId);
+    // Attribute the burst by name on correct notes only (keeps it readable).
+    spawnNote(color, !!evt.correct, evt.correct ? name : '');
+  }
+
+  // ---- Live roster: the other musicians, a chip pulsing when they play ------
+  function renderRoster() {
+    if (!els.roster) return;
+    var players = (lastState && lastState.players) ? lastState.players.filter(function (p) {
+      return p.online && p.id !== myId && (!lastState.adminId || p.id !== lastState.adminId);
+    }) : [];
+    if (!players.length) { els.roster.hidden = true; els.roster.innerHTML = ''; rosterEls = {}; return; }
+    els.roster.hidden = false;
+    els.roster.innerHTML = ''; rosterEls = {};
+    players.forEach(function (p) {
+      var chip = el('div', 'rchip');
+      var dot = el('span', 'rchip__dot'); dot.style.background = p.color || '#888';
+      chip.appendChild(dot);
+      chip.appendChild(el('span', 'rchip__name', p.name || '🎵'));
+      els.roster.appendChild(chip);
+      rosterEls[p.id] = chip;
+    });
+  }
+  function pulseRoster(pid) {
+    var chip = rosterEls[pid]; if (!chip) return;
+    chip.classList.remove('rchip--play'); void chip.offsetWidth; chip.classList.add('rchip--play');
+  }
+
+  // ---- Reactions: emoji bursts fanned out to every screen -------------------
+  function onReact(evt) {
+    if (!evt || !evt.emoji) return;
+    if (evt.playerId === myId) return;             // our own taps burst locally already
+    spawnReaction(evt.emoji);
+  }
+  function spawnReaction(emoji) {
+    var n = el('div', 'fx-react', emoji);
+    n.style.left = (8 + Math.random() * 84) + 'vw';
+    document.body.appendChild(n);
+    setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, 1800);
   }
 
   function onWelcome(w) {
@@ -1008,8 +1096,14 @@
     // Offer the podium whenever the conductor seat is empty (the server frees it
     // after the grace period when a conductor leaves).
     if (els.claimHost) els.claimHost.hidden = !!(lastState && lastState.adminId && lastState.adminId.length);
+    // Hide the reaction bar while actively playing (it would overlap the pad /
+    // Free Play canvas) — reactions are for the lobby and between songs.
+    if (els.reactbar) {
+      var playing = (mode === 'FREEPLAY') || (transport().running && (mode === 'ALONG' || mode === 'DRIVEN'));
+      els.reactbar.hidden = !!playing;
+    }
   }
-  function modeLabel(m) { return ({ LOBBY: 'Lobby', FREE: 'Test Play', FREEPLAY: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes', LISTEN: 'Listen Only' })[m] || m; }
+  function modeLabel(m) { return ({ LOBBY: 'Lobby', FREE: 'Test Play', FREEPLAY: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes', LISTEN: 'Listen Only', SCORE: 'Read Score' })[m] || m; }
   function flashConn(msg) { if (els.conn) { els.conn.textContent = '⚠️ ' + msg; } }
 
   function showConductorBanner() {
@@ -1033,7 +1127,17 @@
     els.conn    = $('conn');
     els.modePill = $('mode-pill');
     els.claimHost = $('claim-host');
+    els.roster  = $('roster');
+    els.reactbar = $('reactbar');
     if (els.claimHost) els.claimHost.addEventListener('click', function () { window.location.href = '/admin'; });
+
+    // Reaction buttons: burst locally for instant feedback, fan out to everyone.
+    if (els.reactbar) els.reactbar.addEventListener('click', function (e) {
+      var b = e.target.closest('button[data-emoji]'); if (!b) return;
+      var emoji = b.getAttribute('data-emoji');
+      spawnReaction(emoji); haptic(10);
+      if (conn) conn.send({ t: 'react', emoji: emoji });
+    });
 
     var saved = NET.loadProfile();
     if (saved.name) profile.name = saved.name;
@@ -1053,6 +1157,6 @@
     renderStage(true);
     requestAnimationFrame(frame);
 
-    conn = NET.connect({ role: 'player', onState: onState, onNote: onNote, onWelcome: onWelcome, onError: onError });
+    conn = NET.connect({ role: 'player', onState: onState, onNote: onNote, onReact: onReact, onWelcome: onWelcome, onError: onError });
   });
 })();

@@ -19,7 +19,18 @@
        and the grace period elapsed). Tapping it claims the podium. -->
   <button id="claim-host" class="claim-host" type="button" hidden>🎩 Become the conductor</button>
 
+  <!-- Live roster — the other musicians; a chip pulses when its player plays. -->
+  <div id="roster" class="roster" hidden></div>
+
   <main id="stage" class="stage"><!-- built by player.js, swapped per mode --></main>
+
+  <!-- Reactions: tap to fan an emoji burst to every screen. -->
+  <div id="reactbar" class="reactbar">
+    <button type="button" data-emoji="👏">👏</button>
+    <button type="button" data-emoji="🔥">🔥</button>
+    <button type="button" data-emoji="🎉">🎉</button>
+    <button type="button" data-emoji="❤️">❤️</button>
+  </div>
 
   <section id="profile" class="profile">
     <input id="name" type="text" maxlength="20" placeholder="Your name" autocomplete="off" spellcheck="false">

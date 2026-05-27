@@ -257,7 +257,51 @@ input[type="text"]:focus, select:focus { border-color: var(--accent); }
   animation: floatup 1.6s ease-out forwards; text-shadow: 0 2px 8px rgba(0,0,0,.4);
 }
 .fx-note--hit { filter: drop-shadow(0 0 8px currentColor); }
+.fx-note__who { display: block; font-size: 11px; font-weight: 700; opacity: .85; text-align: center; }
 @keyframes floatup { 0%{opacity:0;transform:translateY(0) scale(.6);} 15%{opacity:1;} 100%{opacity:0;transform:translateY(-42vh) scale(1.2) rotate(12deg);} }
+
+/* Reaction bursts (applause/emoji), fanned out to every screen */
+.fx-react {
+  position: fixed; bottom: 10vh; z-index: 55; pointer-events: none;
+  font-size: clamp(34px, 9vw, 56px); animation: reactup 1.8s ease-out forwards;
+  filter: drop-shadow(0 3px 10px rgba(0,0,0,.5));
+}
+@keyframes reactup { 0%{opacity:0;transform:translateY(0) scale(.5);} 12%{opacity:1;transform:translateY(-4vh) scale(1.15);} 100%{opacity:0;transform:translateY(-58vh) scale(1) rotate(-8deg);} }
+
+/* Reaction bar — a fixed cluster the musician can always tap */
+.reactbar {
+  position: fixed; right: calc(10px + env(safe-area-inset-right)); bottom: calc(86px + env(safe-area-inset-bottom));
+  z-index: 30; display: flex; flex-direction: column; gap: 8px;
+}
+.reactbar button {
+  width: 46px; height: 46px; padding: 0; border-radius: 50%; font-size: 22px;
+  background: rgba(39,27,62,.82); backdrop-filter: blur(6px); border: 1px solid var(--border);
+  box-shadow: 0 4px 14px rgba(0,0,0,.4);
+}
+.reactbar button:active { transform: scale(.86); }
+
+/* Live roster strip */
+.roster {
+  display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none;
+  padding: 8px 12px; background: rgba(39,27,62,.5); border-bottom: 1px solid var(--border);
+}
+.roster::-webkit-scrollbar { display: none; }
+.rchip {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  padding: 5px 11px 5px 8px; border-radius: 999px; background: var(--bg-elev);
+  border: 1px solid var(--border); font-size: 13px; font-weight: 600;
+  transition: box-shadow 150ms, transform 150ms;
+}
+.rchip__dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.rchip__name { max-width: 90px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rchip--play { animation: rchippulse 600ms ease; }
+@keyframes rchippulse { 0%{box-shadow:0 0 0 0 rgba(176,139,255,.6);transform:scale(1);} 40%{box-shadow:0 0 0 6px rgba(176,139,255,0);transform:scale(1.08);} 100%{transform:scale(1);} }
+
+/* Badges (earned at the end of a piece, shown on the curtain call) */
+.badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 4px; }
+.badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--bg-elev); border: 1px solid var(--border); font-size: 13px; font-weight: 700; }
+.badge__icon { font-size: 18px; }
+.badge--new { border-color: var(--accent2); background: rgba(255,215,107,.16); color: var(--accent2); animation: claim-pulse 1.2s ease-in-out infinite; }
 
 /* ----- Profile panel -------------------------------------------------------*/
 .profile {

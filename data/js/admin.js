@@ -66,7 +66,7 @@
 
     NET.fetchScores().then(function (list) { scoresList = list || []; buildScoreCards(); });
 
-    conn = NET.connect({ role: 'admin', onWelcome: onWelcome, onState: onState, onNote: onNote, onStats: onStats, onError: onError });
+    conn = NET.connect({ role: 'admin', onWelcome: onWelcome, onState: onState, onNote: onNote, onReact: onReact, onStats: onStats, onError: onError });
     requestAnimationFrame(frame);
   });
 
@@ -187,6 +187,15 @@
       card.root.classList.add(evt.correct ? 'note-hit' : 'note-miss');
       updateCardStats(card, evt.playerId);
     }
+  }
+
+  // Reactions burst on the podium too — the conductor screen is the room's stage.
+  function onReact(evt) {
+    if (!evt || !evt.emoji) return;
+    var n = el('div', 'fx-react', evt.emoji);
+    n.style.left = (8 + Math.random() * 84) + 'vw';
+    document.body.appendChild(n);
+    setTimeout(function () { if (n.parentNode) n.parentNode.removeChild(n); }, 1800);
   }
 
   function onStats(msg) {

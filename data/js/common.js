@@ -125,6 +125,7 @@
       switch (msg.t) {
         case 'state':   if (opts.onState)   opts.onState(msg);   break;
         case 'note':    if (opts.onNote)    opts.onNote(msg);    break;
+        case 'react':   if (opts.onReact)   opts.onReact(msg);   break;
         case 'welcome': if (opts.onWelcome) opts.onWelcome(msg); break;
         case 'stats':   if (opts.onStats)   opts.onStats(msg);   break;
         case 'error':   if (opts.onError)   opts.onError(msg);   break;
