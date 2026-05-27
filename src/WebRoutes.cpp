@@ -428,6 +428,7 @@ void install(AsyncWebServer& server) {
     // 404, avoiding AsyncStaticWebHandler's probe cascade.
     server.on("/css/*",    HTTP_GET, serveStatic);
     server.on("/js/*",     HTTP_GET, serveStatic);
+    server.on("/img/*",    HTTP_GET, serveStatic);
     server.on("/scores/*", HTTP_GET, serveStatic);
 
     // Captive-portal connectivity probes. Before the client has opened the UI,

@@ -53,6 +53,7 @@
     els.assignBar = $('assign-bar'); els.chkAutofill = $('chk-autofill');
     els.syncPanel = $('sync-panel'); els.syncFill = $('sync-fill'); els.syncLabel = $('sync-label');
     els.recordLabel = $('record-label');
+    els.btnJoin = $('btn-join'); els.joinPanel = $('join-panel');
 
     try { autofillOn = localStorage.getItem('maestro.autofill') === '1'; } catch (e) {}
     if (els.chkAutofill) els.chkAutofill.checked = autofillOn;
@@ -123,6 +124,11 @@
     });
     els.btnAuto.addEventListener('click', autoAssign);
     if (els.btnReload) els.btnReload.addEventListener('click', function () { location.reload(); });
+    // Toggle the (hidden-by-default) join QR panel from the topbar button.
+    if (els.btnJoin && els.joinPanel) els.btnJoin.addEventListener('click', function () {
+      els.joinPanel.hidden = !els.joinPanel.hidden;
+      els.btnJoin.classList.toggle('qrtoggle--on', !els.joinPanel.hidden);
+    });
     if (els.chkAutofill) els.chkAutofill.addEventListener('change', function () {
       autofillOn = els.chkAutofill.checked;
       try { localStorage.setItem('maestro.autofill', autofillOn ? '1' : '0'); } catch (e) {}
