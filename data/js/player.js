@@ -206,7 +206,7 @@
       runKey = key;
       combo = 0; bestCombo = 0; hitCount = 0; missCount = 0;
       schedule = (myVoice && myVoice.notes) ? myVoice.notes.map(function (n) {
-        return { t: n.t, m: n.m, d: n.d, consumed: false, result: 0 };
+        return { t: n.t, m: n.m, d: n.d, v: n.v, consumed: false, result: 0 };
       }) : [];
       // Pitch span of my part → the horizontal axis of the Driven lane.
       schedLo = 60; schedHi = 72;
@@ -225,7 +225,7 @@
     I.unlock();
     if (!instrReady || !effInstr) return;
 
-    var midi, correct = false, durMs = null;
+    var midi, correct = false, durMs = null, gain = 0.95;
 
     if (mode === 'FREE') {
       midi = I.randomFourthOctave();   // free improvisation: let it ring naturally
@@ -235,17 +235,19 @@
       var note = (pos == null) ? null : nearestPlayable(pos, win);
       if (note) {
         note.consumed = true; note.result = 1;
-        midi = note.m; correct = true; durMs = note.d;   // correct ⇒ scored pitch AND length
+        // Correct ⇒ scored pitch, length AND intensity (velocity).
+        midi = note.m; correct = true; durMs = note.d; gain = I.velGain(note.v);
         combo++; if (combo > bestCombo) bestCombo = combo; hitCount++;
         gateFlash('hit');
       } else {
         midi = I.randomFourthOctave();
+        gain = 0.85;
         combo = 0; missCount++;
         gateFlash('miss');
       }
     }
 
-    I.play(effInstr, midi, 0, 0.95, null, durMs);
+    I.play(effInstr, midi, 0, gain, null, durMs);
     spawnLocalNote(midi, correct);
     if (conn) conn.send({ t: 'play', midi: midi, correct: correct, voiceId: (myVoice ? myVoice.id : '') });
     updateScoreboard();
@@ -614,7 +616,7 @@
       var n = myVoice.notes[i];
       var when = ctxStart + n.t / 1000;
       if (when < nowCtx - 0.05) continue;       // don't dump already-past notes
-      var src = I.play(effInstr, n.m, when, 0.95, null, n.d);
+      var src = I.play(effInstr, n.m, when, I.velGain(n.v), null, n.d);
       if (src) listenSources.push(src);
     }
   }

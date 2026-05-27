@@ -58,22 +58,40 @@ def m(name):
 R = "R"
 
 
-def voice(vid, name, instrument, tempo, seq, gap=0.06):
+def accent(beatpos):
+    """Metric-stress multiplier so notes carry musical dynamics. Downbeats are
+    loudest, off-beats softest — this is what makes a correctly-played note
+    sound with the right *intensity*, not just pitch and length."""
+    frac = beatpos - round(beatpos)
+    if abs(frac) > 0.05:
+        return 0.78                 # between beats (off-beat)
+    ib = int(round(beatpos))
+    if ib % 4 == 0:
+        return 1.18                 # bar downbeat
+    if ib % 2 == 0:
+        return 1.0
+    return 0.9
+
+
+def voice(vid, name, instrument, tempo, seq, gap=0.06, base_vel=92):
     """seq is a flat list alternating note(str)/duration(beats, float).
 
     e.g. ["E4",1, "E4",1, "F4",1, R,1]. `gap` trims each note slightly so
-    repeated pitches re-articulate instead of merging.
+    repeated pitches re-articulate. Each note also gets a velocity `v` (1..127)
+    from `base_vel` shaped by metric accent, so playback has dynamics.
     """
     beat_ms = 60000.0 / tempo
     notes = []
     t = 0.0
     for i in range(0, len(seq), 2):
         pitch = seq[i]
-        beats = seq[i + 1]
-        dur = beats * beat_ms
+        beats_ = seq[i + 1]
+        dur = beats_ * beat_ms
         if pitch != R:
+            v = max(1, min(127, round(base_vel * accent(t / beat_ms))))
             notes.append(
-                {"t": round(t), "m": m(pitch), "d": round(max(80, dur * (1 - gap)))}
+                {"t": round(t), "m": m(pitch),
+                 "d": round(max(80, dur * (1 - gap))), "v": v}
             )
         t += dur
     return {"id": vid, "name": name, "instrument": instrument, "notes": notes}, round(t)
@@ -84,7 +102,7 @@ def beats(seq):
     return sum(seq[1::2])
 
 
-def drone(vid, name, instrument, tempo, roots, total_beats, beat_per=2.0):
+def drone(vid, name, instrument, tempo, roots, total_beats, beat_per=2.0, base_vel=72):
     """A bass/accompaniment voice that cycles `roots`, each `beat_per` beats,
     filling exactly `total_beats` — so it stays length-aligned with the melody
     it accompanies (the looper repeats every voice over a common period)."""
@@ -93,7 +111,51 @@ def drone(vid, name, instrument, tempo, roots, total_beats, beat_per=2.0):
         d = min(beat_per, total_beats - t)
         seq += [roots[i % len(roots)], d]
         t += d; i += 1
-    return voice(vid, name, instrument, tempo, seq)
+    return voice(vid, name, instrument, tempo, seq, base_vel=base_vel)
+
+
+# ---------------------------------------------------------------------------
+# Chord-driven ensemble helpers — let a piece spread one harmony across many
+# length-aligned voices (more musicians playing together) from a compact
+# chord progression `prog` = [(chordName, beats), ...].
+# ---------------------------------------------------------------------------
+CHORDS = {
+    "C": ["C", "E", "G"],   "Cm": ["C", "Eb", "G"],
+    "D": ["D", "F#", "A"],  "Dm": ["D", "F", "A"],
+    "E": ["E", "G#", "B"],  "Em": ["E", "G", "B"],
+    "F": ["F", "A", "C"],   "Fm": ["F", "Ab", "C"],
+    "G": ["G", "B", "D"],   "Gm": ["G", "Bb", "D"],
+    "A": ["A", "C#", "E"],  "Am": ["A", "C", "E"],
+    "B": ["B", "D#", "F#"], "Bm": ["B", "D", "F#"],
+    "Bb": ["Bb", "D", "F"], "Eb": ["Eb", "G", "Bb"],
+    "F#m": ["F#", "A", "C#"], "C#m": ["C#", "E", "G#"],
+}
+
+
+def _nm(pc, octv):
+    return pc + str(octv)
+
+
+def chord_seq(prog, tone, octv, beat_per=2.0):
+    """Flat seq holding one chord tone (0=root,1=third,2=fifth) at `octv`."""
+    seq = []
+    for ch, bts in prog:
+        pcs = CHORDS[ch]; t = 0.0
+        while t < bts - 1e-6:
+            d = min(beat_per, bts - t)
+            seq += [_nm(pcs[tone % 3], octv), d]; t += d
+    return seq
+
+
+def arp_seq(prog, pattern, octv, beat_per=0.5):
+    """Flat seq arpeggiating each chord through `pattern` (tone indices)."""
+    seq = []; i = 0
+    for ch, bts in prog:
+        pcs = CHORDS[ch]; t = 0.0
+        while t < bts - 1e-6:
+            d = min(beat_per, bts - t)
+            seq += [_nm(pcs[pattern[i % len(pattern)] % 3], octv), d]; t += d; i += 1
+    return seq
 
 
 def write(score):
@@ -104,22 +166,20 @@ def write(score):
           f"{sum(len(v['notes']) for v in score['voices'])} notes)")
 
 
-def build(meta, tempo, voices, target_ms=TARGET_MS):
-    """Loop every voice over a common period until the piece reaches target_ms.
-
-    The loop period P is the longest single-pass voice length, so all voices stay
-    phase-aligned across repeats (a shorter voice simply rests out the remainder
-    of each pass). lengthMs is the looped total.
-    """
+def build(meta, tempo, voices, target_ms=TARGET_MS, loop=True):
+    """Assemble a score. With loop=True the material is repeated over its common
+    period until it reaches target_ms (used by the short themes). With loop=False
+    the voices play once as written — for the long, through-composed ensemble
+    pieces that already run over a minute."""
     period = max(L for (_, L) in voices)
-    repeats = max(1, math.ceil(target_ms / period))
+    repeats = max(1, math.ceil(target_ms / period)) if loop else 1
     out_voices = []
     for (v, _L) in voices:
         notes = []
         for r in range(repeats):
             off = r * period
             for n in v["notes"]:
-                notes.append({"t": n["t"] + off, "m": n["m"], "d": n["d"]})
+                notes.append({"t": n["t"] + off, "m": n["m"], "d": n["d"], "v": n["v"]})
         out_voices.append({"id": v["id"], "name": v["name"], "instrument": v["instrument"], "notes": notes})
     score = dict(meta)
     score["tempo"] = tempo
@@ -321,6 +381,101 @@ bass = drone("bass", "Bass", "organ", T, ["B3", "F#3", "B3", "F#3"], beats(sl), 
 scores.append(build(
     {"id": "swan-lake", "title": "Swan Lake (Theme)", "composer": "Tchaikovsky"},
     T, [mel, bass]))
+
+# ============================================================================
+# ENSEMBLE LEVELS (11–15): bigger arrangements — 5–6 voices each so more people
+# play at once — written to run over a minute WITHOUT looping (loop=False).
+# Harmony voices are spread from a chord progression so every part fits.
+# ============================================================================
+
+# 11. Pachelbel — Canon Royale (D major). The ground repeats (as a canon does),
+#     but each section's lead arpeggiates a different pattern, and six voices
+#     stack the harmony. 64 beats @ 60 bpm = 64 s.
+T = 60
+G = [("D",2),("A",2),("Bm",2),("F#m",2),("G",2),("D",2),("G",2),("A",2)]  # 16 beats
+prog = G * 4
+lead = (arp_seq(G,[0,1,2,1],5,0.5) + arp_seq(G,[2,1,0,2],5,0.5)
+        + arp_seq(G,[0,2,1,2],5,0.5) + arp_seq(G,[1,0,2,1],5,0.5))
+scores.append(build(
+    {"id": "canon-royale", "title": "Canon Royale", "composer": "Pachelbel"}, T, [
+        voice("lead", "Lead", "strings", T, lead, base_vel=106),
+        voice("violin2", "Violin II", "strings", T, chord_seq(prog, 2, 4, 1.0), base_vel=84),
+        voice("viola", "Viola", "harp", T, chord_seq(prog, 1, 4, 1.0), base_vel=80),
+        voice("harp", "Harp", "harp", T, arp_seq(prog, [0,1,2], 4, 0.5), base_vel=72),
+        voice("cello", "Cello", "organ", T, chord_seq(prog, 0, 3, 2.0), base_vel=86),
+        voice("bells", "Bells", "bells", T, arp_seq(prog, [2,0,1], 5, 1.0), base_vel=70),
+    ], loop=False))
+
+# 12. Traditional — Greensleeves (A minor). Two alternating sections. 64 @ 60.
+T = 60
+A = [("Am",2),("C",2),("G",2),("Am",2),("Am",2),("C",2),("E",2),("E",2)]
+B = [("C",2),("G",2),("Am",2),("E",2),("C",2),("G",2),("E",2),("Am",2)]
+prog = A + B + A + B
+lead = (arp_seq(A,[0,2,1],5,0.5) + arp_seq(B,[2,1,0],5,0.5)
+        + arp_seq(A,[0,1,2,1],5,0.5) + arp_seq(B,[1,2,0,2],5,0.5))
+scores.append(build(
+    {"id": "greensleeves", "title": "Greensleeves", "composer": "Traditional"}, T, [
+        voice("lead", "Recorder", "flute", T, lead, base_vel=104),
+        voice("alto", "Alto", "strings", T, chord_seq(prog, 1, 4, 1.0), base_vel=82),
+        voice("tenor", "Tenor", "strings", T, chord_seq(prog, 2, 3, 1.0), base_vel=80),
+        voice("lute", "Lute", "guitar", T, arp_seq(prog, [0,1,2,1], 4, 0.5), base_vel=74),
+        voice("bass", "Bass", "organ", T, chord_seq(prog, 0, 3, 2.0), base_vel=84),
+    ], loop=False))
+
+# 13. Handel — Largo (lush, slow). 64 beats @ 54 bpm ≈ 71 s.
+T = 54
+A = [("G",4),("C",4),("G",4),("D",4)]
+B = [("Em",4),("C",4),("G",4),("D",4)]
+prog = A + B + A + B
+lead = (arp_seq(A,[2,1,0],5,1.0) + arp_seq(B,[0,1,2],5,1.0)
+        + arp_seq(A,[2,1,2,0],5,1.0) + arp_seq(B,[1,2,1,0],5,1.0))
+scores.append(build(
+    {"id": "largo", "title": "Largo", "composer": "Handel"}, T, [
+        voice("lead", "Oboe", "flute", T, lead, base_vel=100),
+        voice("strings", "Strings", "strings", T, chord_seq(prog, 1, 4, 2.0), base_vel=78),
+        voice("viola", "Viola", "strings", T, chord_seq(prog, 2, 3, 2.0), base_vel=76),
+        voice("harp", "Harp", "harp", T, arp_seq(prog, [0,1,2], 4, 1.0), base_vel=72),
+        voice("organ", "Organ", "organ", T, chord_seq(prog, 0, 3, 4.0), base_vel=82),
+    ], loop=False))
+
+# 14. Elgar — Pomp & Circumstance (grand). 64 beats @ 60 = 64 s.
+T = 60
+A = [("G",2),("D",2),("Em",2),("C",2),("G",2),("D",2),("C",2),("D",2)]
+B = [("C",2),("G",2),("Am",2),("D",2),("G",2),("Em",2),("C",2),("D",2)]
+prog = A + B + A + B
+lead = (arp_seq(A,[0,1,2,1],5,0.5) + arp_seq(B,[2,1,0,1],5,0.5)
+        + arp_seq(A,[0,2,1,2],5,0.5) + arp_seq(B,[1,2,1,0],5,0.5))
+scores.append(build(
+    {"id": "pomp", "title": "Pomp & Circumstance", "composer": "Elgar"}, T, [
+        voice("lead", "Trumpet", "guitar", T, lead, base_vel=108),
+        voice("violin", "Violin", "strings", T, chord_seq(prog, 1, 4, 1.0), base_vel=84),
+        voice("horn", "Horn", "strings", T, chord_seq(prog, 2, 3, 1.0), base_vel=80),
+        voice("chimes", "Chimes", "bells", T, arp_seq(prog, [2,0,1], 5, 1.0), base_vel=72),
+        voice("harp", "Harp", "harp", T, arp_seq(prog, [0,1,2], 4, 0.5), base_vel=72),
+        voice("bass", "Bass", "organ", T, chord_seq(prog, 0, 3, 2.0), base_vel=88),
+    ], loop=False))
+
+# 15. Beethoven — Ode to Joy (Grand): the recognizable theme (played twice)
+#     over a full ensemble. 64 beats @ 60 = 64 s.
+T = 60
+ode = [
+    "E4",1,"E4",1,"F4",1,"G4",1, "G4",1,"F4",1,"E4",1,"D4",1,
+    "C4",1,"C4",1,"D4",1,"E4",1, "E4",1.5,"D4",0.5,"D4",2,
+    "E4",1,"E4",1,"F4",1,"G4",1, "G4",1,"F4",1,"E4",1,"D4",1,
+    "C4",1,"C4",1,"D4",1,"E4",1, "D4",1.5,"C4",0.5,"C4",2,
+]
+A = [("C",2),("C",2),("F",2),("C",2),("C",2),("F",2),("G",2),("C",2)]
+B = [("C",2),("F",2),("C",2),("G",2),("C",2),("F",2),("G",2),("C",2)]
+prog = A + B + A + B
+scores.append(build(
+    {"id": "ode-grand", "title": "Ode to Joy (Grand)", "composer": "Beethoven"}, T, [
+        voice("melody", "Melody", "piano", T, ode + ode, base_vel=108),
+        voice("violin", "Violin", "strings", T, chord_seq(prog, 1, 4, 1.0), base_vel=82),
+        voice("viola", "Viola", "strings", T, chord_seq(prog, 2, 3, 1.0), base_vel=80),
+        voice("flute", "Flute", "flute", T, arp_seq(prog, [2,1,2,0], 5, 0.5), base_vel=78),
+        voice("harp", "Harp", "harp", T, arp_seq(prog, [0,1,2], 4, 0.5), base_vel=72),
+        voice("cello", "Cello", "organ", T, chord_seq(prog, 0, 3, 2.0), base_vel=88),
+    ], loop=False))
 
 # ============================================================================
 # Emit files + manifest.

@@ -22,7 +22,9 @@ its instrument so taps play with zero latency.
 Every instrument is **loudness-matched** (each note normalized to a common
 perceived level) and the whole output runs through a limiter, so no single timbre
 saturates the speakers and stacked notes never clip. A correctly-played note also
-sounds for its **scored length**, so quarter notes are crisper than half notes.
+sounds for its **scored length and intensity** — quarter notes are crisper than
+half notes, and accented beats land louder than off-beats (dynamics, not just
+pitch).
 
 ## The five modes
 
@@ -40,26 +42,28 @@ When you're off the beat, a random note plays instead — so the orchestra alway
 Each piece loops to **at least a minute** of music, so one "Start" gives the room
 a proper performance rather than a snippet.
 
-## The 10 pieces
+## The 15 pieces
 
-All public-domain compositions, transcribed as simple melodies and looped to at
-least a minute:
+All public-domain compositions. Ten short themes (2–3 voices) looped to a minute,
+plus five **ensemble arrangements** (5–6 voices) for bigger groups, each over a
+minute of through-composed music (no looping):
 
-- **Ode to Joy** — Beethoven
-- **Eine kleine Nachtmusik** — Mozart
-- **Minuet in G** — Bach (Petzold)
-- **Canon in D** — Pachelbel
-- **Spring (La Primavera)** — Vivaldi
-- **Für Elise** — Beethoven
-- **In the Hall of the Mountain King** — Grieg
-- **William Tell (Finale)** — Rossini
-- **Brahms' Lullaby** — Brahms
-- **Swan Lake (Theme)** — Tchaikovsky
+| Short themes (2–3 parts) | Ensemble levels (5–6 parts) |
+|--------------------------|-----------------------------|
+| Ode to Joy — Beethoven   | Canon Royale — Pachelbel (6) |
+| Eine kleine Nachtmusik — Mozart | Greensleeves — Traditional (5) |
+| Minuet in G — Bach (Petzold) | Largo — Handel (5) |
+| Canon in D — Pachelbel   | Pomp & Circumstance — Elgar (6) |
+| Spring — Vivaldi         | Ode to Joy (Grand) — Beethoven (6) |
+| Für Elise — Beethoven    | |
+| In the Hall of the Mountain King — Grieg | |
+| William Tell (Finale) — Rossini | |
+| Brahms' Lullaby — Brahms | |
+| Swan Lake (Theme) — Tchaikovsky | |
 
-Each piece has 2–3 *voices* (e.g. melody, bass, sparkle); the podium shows how
-many parts each piece has so you can match it to your group size. In the timed
-modes the conductor assigns each musician a voice; in Test Play the instrument
-list is drawn from the selected piece's voices.
+The podium shows how many parts each piece has, so you can match it to your
+group size. In the timed modes the conductor assigns each musician a voice; in
+Test Play the instrument list is drawn from the selected piece's voices.
 
 ## Hardware
 
@@ -203,6 +207,6 @@ and swaps the buzzer for an instrument.
 
 ## License
 
-MIT. All sounds are synthesized at runtime (no audio assets ship), and the five
-scores are transcriptions of public-domain classical compositions, so the
-repository carries no third-party media.
+MIT. All sounds are synthesized at runtime (no audio assets ship), and the
+scores are transcriptions/arrangements of public-domain classical compositions,
+so the repository carries no third-party media.

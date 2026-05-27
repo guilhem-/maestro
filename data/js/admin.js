@@ -430,14 +430,16 @@
     return { ctx: ctx, start: ctx.currentTime + Math.max(0, secs) };
   }
 
-  // Schedule a whole voice (all notes, correct pitch + length) on a bus.
-  function scheduleVoiceFull(v, ctxStart, gain, bus, sink) {
+  // Schedule a whole voice (all notes, correct pitch + length + intensity) on a
+  // bus. Per-note gain comes from the note's velocity; the bus sets the section
+  // level.
+  function scheduleVoiceFull(v, ctxStart, bus, sink) {
     var nowCtx = I.audioCtx().currentTime;
     for (var i = 0; i < v.notes.length; i++) {
       var n = v.notes[i];
       var when = ctxStart + n.t / 1000;
       if (when < nowCtx - 0.05) continue;
-      var s = I.play(v.instrument, n.m, when, gain, bus, n.d);
+      var s = I.play(v.instrument, n.m, when, I.velGain(n.v), bus, n.d);
       if (s) sink.push(s);
     }
   }
@@ -456,7 +458,7 @@
         fillBus = ctx.createGain();
         fillBus.gain.value = 0.7;
         fillBus.connect(I.master());
-        curScore.voices.forEach(function (v) { scheduleVoiceFull(v, ctxStart, 0.8, fillBus, fillSources); });
+        curScore.voices.forEach(function (v) { scheduleVoiceFull(v, ctxStart, fillBus, fillSources); });
       }
       return;
     }
@@ -477,7 +479,7 @@
         for (var i = 0; i < v.notes.length; i++) {
           var n = v.notes[i];
           if (n.t > tr.introMs + 200) break;           // only the guided portion
-          var s = I.play(v.instrument, n.m, ctxStart + n.t / 1000, 0.6, fadeBus, n.d);
+          var s = I.play(v.instrument, n.m, ctxStart + n.t / 1000, I.velGain(n.v), fadeBus, n.d);
           if (s) guideSources.push(s);
         }
       });
@@ -493,7 +495,7 @@
         if (assigned[v.id]) return;
         for (var i = 0; i < v.notes.length; i++) {
           var n = v.notes[i];
-          var s = I.play(v.instrument, n.m, ctxStart + n.t / 1000, 0.85, fillBus, n.d);
+          var s = I.play(v.instrument, n.m, ctxStart + n.t / 1000, I.velGain(n.v), fillBus, n.d);
           if (s) fillSources.push(s);
         }
       });

@@ -257,6 +257,9 @@
     label: function (id) { return (BANK[id] && BANK[id].label) || id; },
     midiToFreq: midiToFreq,
     noteName: noteName,
+    // MIDI velocity (1..127) → playback gain (0..1), so a note's intensity is
+    // rendered alongside its pitch and length. null/absent → a default mezzo.
+    velGain: function (v) { return (v == null) ? 0.85 : Math.max(0.1, Math.min(1, 0.25 + 0.75 * (v / 127))); },
     randomFourthOctave: function () { return 60 + ((Math.random() * 12) | 0); },
     audioCtx: audioCtx,
     master: master,

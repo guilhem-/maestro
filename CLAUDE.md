@@ -7,8 +7,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Maestro C3 is firmware for a single ESP32-C3 that turns a roomful of phones into
 a **wireless orchestra**. Phones join an open WiFi soft-AP ("Maestro",
 `192.168.4.1`); each phone becomes an *instrument*. One device claims `/admin`
-and conducts: it picks one of 10 public-domain classical pieces and one of 5
-game modes. PlatformIO + Arduino framework; web UI served from a LittleFS partition.
+and conducts: it picks one of 15 public-domain pieces (10 short 2–3-voice themes
+plus 5 longer 5–6-voice ensemble arrangements) and one of 5 game modes. PlatformIO + Arduino framework; web UI served from a LittleFS partition.
 
 It is a sibling of `../quizhub` and deliberately reuses its proven plumbing
 (soft-AP + captive portal, the `/ws` broadcast-snapshot pattern, NVS profiles,
@@ -50,7 +50,9 @@ Nyquist dropped to avoid aliasing). Notes are **loudness-equalized** — each is
 normalized to a common RMS with a peak ceiling, so timbres match regardless of
 envelope — and all playback routes through a shared limiter (`master()`), so the
 organ can't saturate and stacked notes never clip. `play(..., durMs)` cuts a note
-to its scored length with a short release.
+to its scored length with a short release; the `gain` arg carries the note's
+**intensity** via `velGain(v)` (MIDI velocity → gain), so a correctly-played note
+renders pitch, length AND dynamics. Score notes are `{t, m, d, v}`.
 
 ### Clock sync (easy to get wrong)
 
@@ -186,7 +188,11 @@ tiny — no JSON serialization or network calls while holding the lock.
   3–4.
 - **Scores are generated, not hand-written.** Edit the symbolic melodies in
   `data/scores/make-scores.py` and re-run it; never hand-edit the `*.json`. The
-  notes are transcriptions of public-domain compositions.
+  notes are transcriptions/arrangements of public-domain compositions. Short
+  themes use `build(..., loop=True)` (looped to ≥60 s); the ensemble pieces use
+  `loop=False` and reach a minute on their own from a chord progression spread
+  across many voices via `chord_seq`/`arp_seq`. Velocity (`v`) is auto-derived
+  from metric `accent()`, so don't expect it in the source seqs.
 - **Colour palette is duplicated in three places** — `--p1..--p16` in
   `data/css/style.css`, `PRESETS` in `data/js/player.js`, and `kPalette` in
   `src/GameState.cpp`. Change all three together.

@@ -68,5 +68,40 @@
     "composer": "Tchaikovsky",
     "file": "swan-lake.json",
     "parts": 2
+  },
+  {
+    "id": "canon-royale",
+    "title": "Canon Royale",
+    "composer": "Pachelbel",
+    "file": "canon-royale.json",
+    "parts": 6
+  },
+  {
+    "id": "greensleeves",
+    "title": "Greensleeves",
+    "composer": "Traditional",
+    "file": "greensleeves.json",
+    "parts": 5
+  },
+  {
+    "id": "largo",
+    "title": "Largo",
+    "composer": "Handel",
+    "file": "largo.json",
+    "parts": 5
+  },
+  {
+    "id": "pomp",
+    "title": "Pomp & Circumstance",
+    "composer": "Elgar",
+    "file": "pomp.json",
+    "parts": 6
+  },
+  {
+    "id": "ode-grand",
+    "title": "Ode to Joy (Grand)",
+    "composer": "Beethoven",
+    "file": "ode-grand.json",
+    "parts": 6
   }
 ]
