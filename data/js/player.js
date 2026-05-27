@@ -49,7 +49,8 @@
   var instrReady = false;
 
   // Live play feedback.
-  var combo = 0, bestCombo = 0, hitCount = 0, missCount = 0;
+  var combo = 0, bestCombo = 0, hitCount = 0, missCount = 0, perfectCount = 0;
+  var lastPosWhileRunning = -1;   // last score position seen while running (for the end-of-piece payoff)
 
   var viewSig = '';          // signature of the currently-built stage
 
@@ -148,10 +149,13 @@
     return I.list().map(function (x) { return x.id; });
   }
 
-  // In ALONG/DRIVEN/LISTEN the instrument comes from the assigned voice.
+  // In ALONG/DRIVEN/LISTEN the instrument comes from the assigned voice — but
+  // only once you actually have one. Before that (waiting for a part) you keep
+  // your own choice, so the warm-up pad makes the sound you picked.
   function isInstrumentDictated() {
     var m = lastState && lastState.mode;
-    return (m === 'ALONG' || m === 'DRIVEN' || m === 'LISTEN');
+    if (m === 'LISTEN') return true;
+    return (m === 'ALONG' || m === 'DRIVEN') && !!myVoice;
   }
 
   function scheduleProfileSend() {
@@ -167,7 +171,10 @@
   // ===========================================================================
   // FREE/LOBBY → the chosen instrument; ALONG/DRIVEN → my voice's instrument.
   function desiredInstrument() {
-    if (isInstrumentDictated()) return myVoice ? myVoice.instrument : null;
+    // While a part is assigned, the voice dictates the instrument; before that
+    // (waiting for a part, or the lobby) fall back to the profile choice so the
+    // phone can pre-tune and the musician can warm up.
+    if (isInstrumentDictated()) return myVoice ? myVoice.instrument : (profile.instrument || 'piano');
     return profile.instrument || 'piano';
   }
 
@@ -203,8 +210,13 @@
     var tr = transport();
     var key = tr.running ? tr.startAtMs : 0;
     if (key !== runKey) {
+      // A run that was playing just stopped → if I took part and the piece
+      // actually reached its end, reward the effort before wiping the tally.
+      if (runKey !== 0 && key === 0) maybeCelebrate((lastState && lastState.mode) || '');
+      else hideCelebrate();              // a fresh run starting → clear any payoff overlay
       runKey = key;
-      combo = 0; bestCombo = 0; hitCount = 0; missCount = 0;
+      combo = 0; bestCombo = 0; hitCount = 0; missCount = 0; perfectCount = 0;
+      lastPosWhileRunning = -1;
       schedule = (myVoice && myVoice.notes) ? myVoice.notes.map(function (n) {
         return { t: n.t, m: n.m, d: n.d, v: n.v, consumed: false, result: 0 };
       }) : [];
@@ -237,13 +249,20 @@
         note.consumed = true; note.result = 1;
         // Correct ⇒ scored pitch, length AND intensity (velocity).
         midi = note.m; correct = true; durMs = note.d; gain = I.velGain(note.v);
+        var signed = note.t - pos;                 // >0 you tapped early, <0 late
+        var grade = gradeFor(Math.abs(signed), win);
+        if (grade === 'perfect') perfectCount++;
         combo++; if (combo > bestCombo) bestCombo = combo; hitCount++;
         gateFlash('hit');
+        flashJudge(grade, signed);
+        haptic(grade === 'perfect' ? [8, 26, 8] : 14);
+        maybeCombo(combo);
       } else {
         midi = I.randomFourthOctave();
         gain = 0.85;
         combo = 0; missCount++;
         gateFlash('miss');
+        flashJudge('miss', 0);
       }
     }
 
@@ -272,12 +291,99 @@
     els.pad.classList.add(kind === 'hit' ? 'pad--hit' : 'pad--miss');
   }
 
+  // Tactile feedback — the single biggest "game feel" win on a phone. No-op on
+  // desktop / iOS Safari (which doesn't expose the Vibration API).
+  function haptic(pattern) { try { if (navigator.vibrate) navigator.vibrate(pattern); } catch (e) {} }
+
+  // Timing tiers: closer to the scheduled note ⇒ better grade. Thirds of the
+  // judging window → perfect / great / good.
+  function gradeFor(absDt, win) {
+    if (absDt <= win * 0.34) return 'perfect';
+    if (absDt <= win * 0.67) return 'great';
+    return 'good';
+  }
+
+  // Floating timing verdict above the pad (PERFECT / GREAT / GOOD ± early/late).
+  function flashJudge(grade, signed) {
+    if (!els.judge) { els.judge = el('div', 'judge'); document.body.appendChild(els.judge); }
+    var txt, cls;
+    if (grade === 'perfect')    { txt = 'PERFECT'; cls = 'judge--perfect'; }
+    else if (grade === 'great') { txt = 'GREAT';   cls = 'judge--great'; }
+    else if (grade === 'good')  { txt = 'GOOD';    cls = 'judge--good'; }
+    else                        { txt = 'MISS';    cls = 'judge--miss'; }
+    if (grade === 'great' || grade === 'good') txt += signed > 0 ? '  early' : '  late';
+    els.judge.className = 'judge ' + cls;
+    els.judge.textContent = txt;
+    void els.judge.offsetWidth;
+    els.judge.classList.add('judge--show');
+  }
+
+  // Combo milestones: a full-screen burst, a stronger buzz, and a bright little
+  // arpeggio reward so a hot streak *feels* like an achievement.
+  function maybeCombo(c) {
+    if (!(c === 10 || c === 25 || c === 50 || c === 75 || c === 100 || (c > 100 && c % 50 === 0))) return;
+    if (!els.combofx) { els.combofx = el('div', 'combofx'); document.body.appendChild(els.combofx); }
+    els.combofx.textContent = '🔥 ' + c + ' COMBO';
+    els.combofx.classList.remove('combofx--show'); void els.combofx.offsetWidth; els.combofx.classList.add('combofx--show');
+    haptic([0, 35, 35, 35]);
+    if (effInstr && instrReady) [0, 4, 7, 12].forEach(function (iv, k) { I.play(effInstr, 72 + iv, I.now() + k * 0.05, 0.4, null, 240); });
+  }
+
+  // A warm major chord that swells when a piece you played finishes.
+  function playFanfare() {
+    if (!effInstr || !instrReady) return;
+    [0, 4, 7, 12].forEach(function (iv, k) { I.play(effInstr, 60 + iv, I.now() + k * 0.05, 0.5, null, 1800); });
+  }
+
   function updateScoreboard() {
     if (els.combo) els.combo.textContent = combo > 1 ? ('🔥 ' + combo + ' combo') : '';
     if (els.acc) {
       var tot = hitCount + missCount;
       els.acc.textContent = tot ? (Math.round(hitCount / tot * 100) + '% · ' + hitCount + '/' + tot) : '';
     }
+  }
+
+  // ===========================================================================
+  // End-of-piece payoff — the moment that makes people want "one more"
+  // ===========================================================================
+  function maybeCelebrate(prevMode) {
+    if (prevMode !== 'ALONG' && prevMode !== 'DRIVEN') return;   // only modes you tap
+    if (!myVoice) return;
+    var tot = hitCount + missCount;
+    if (tot <= 0) return;
+    var len = curScore ? (curScore.lengthMs || 0) : 0;
+    if (len && lastPosWhileRunning < len - 2500) return;         // stopped early → no payoff
+    showCelebrate({ acc: Math.round(hitCount / tot * 100), best: bestCombo, perfect: perfectCount, hits: hitCount, total: tot });
+    playFanfare();
+  }
+
+  function celStat(num, lbl) {
+    var d = el('div', 'celebrate__stat');
+    d.appendChild(el('div', 'celebrate__num', num));
+    d.appendChild(el('div', 'celebrate__lbl', lbl));
+    return d;
+  }
+  function showCelebrate(s) {
+    hideCelebrate();
+    var ov = el('div', 'celebrate');
+    ov.appendChild(el('div', 'celebrate__emoji', s.acc >= 80 ? '🌟' : '🎉'));
+    ov.appendChild(el('div', 'celebrate__title', 'Bravo!'));
+    var st = el('div', 'celebrate__stats');
+    st.appendChild(celStat(s.acc + '%', 'accuracy'));
+    st.appendChild(celStat('🔥 ' + s.best, 'best combo'));
+    st.appendChild(celStat(String(s.perfect), 'perfect'));
+    ov.appendChild(st);
+    ov.appendChild(el('div', 'lobby__sub', 'You played ' + s.hits + ' of ' + s.total + ' notes'));
+    var btn = el('button', 'btn celebrate__btn', 'Continue'); btn.type = 'button';
+    btn.addEventListener('click', hideCelebrate);
+    ov.appendChild(btn);
+    document.body.appendChild(ov);
+    els.celebrate = ov;
+    haptic([0, 30, 40, 30, 40, 60]);
+  }
+  function hideCelebrate() {
+    if (els.celebrate && els.celebrate.parentNode) els.celebrate.parentNode.removeChild(els.celebrate);
+    els.celebrate = null;
   }
 
   // ===========================================================================
@@ -341,9 +447,25 @@
       w.appendChild(el('div', 'lobby__sub', 'by ' + (curScore.composer || '—') + ' · waiting for the conductor to start'));
     } else {
       w.appendChild(el('div', 'lobby__title', 'Welcome to the orchestra'));
-      w.appendChild(el('div', 'lobby__sub', 'Pick a colour below and wait for the conductor to choose a piece.'));
+      w.appendChild(el('div', 'lobby__sub', 'Pick a colour below and warm up while the conductor sets up.'));
     }
     stage.appendChild(w);
+    addWarmupPad(stage);
+  }
+
+  // A free "noodle" pad so nobody stares at a dead screen while waiting (in the
+  // lobby, or after joining a timed mode before a part is assigned). Taps play a
+  // random note on the chosen instrument — same path as Test Play.
+  function addWarmupPad(stage) {
+    if (!instrReady || !effInstr) return;
+    var pad = el('button', 'pad pad--warm'); pad.type = 'button';
+    pad.style.setProperty('--pad', profile.color);
+    pad.appendChild(el('span', 'pad__icon', I.icon(effInstr)));
+    pad.appendChild(el('span', 'pad__label', 'WARM UP'));
+    bindPad(pad, 'FREE');
+    els.pad = pad;
+    stage.appendChild(pad);
+    stage.appendChild(el('div', 'free__hint', 'Tap to noodle on your ' + I.label(effInstr) + ' while you wait'));
   }
 
   function buildFree(stage) {
@@ -498,6 +620,7 @@
     w.appendChild(el('div', 'lobby__title', 'Waiting for your part'));
     w.appendChild(el('div', 'lobby__sub', 'The conductor will assign you a voice for ' + modeLabel + '.'));
     stage.appendChild(w);
+    addWarmupPad(stage);
   }
 
   function buildAlong(stage) {
@@ -646,6 +769,7 @@
 
     // Countdown overlay (any timed mode while transport hasn't reached 0).
     var tr = transport();
+    if (pos != null && pos >= 0) lastPosWhileRunning = pos;   // for the end-of-piece payoff
     if (tr.running && pos != null && pos < 0) showCountdown(Math.ceil(-pos / 1000));
     else hideCountdown();
 
@@ -741,6 +865,7 @@
       return;
     }
 
+    var pxPerMs = (gateY - top) / LOOKAHEAD;   // shared note speed → duration in px
     var col = profile.color || '#b08bff';
     for (var i = 0; i < schedule.length; i++) {
       var s = schedule[i];
@@ -755,6 +880,15 @@
       ctx.globalAlpha = s.consumed ? 0.06 : 0.14;
       ctx.strokeStyle = col; ctx.lineWidth = 2 * dpr;
       ctx.beginPath(); ctx.moveTo(x, top); ctx.lineTo(x, gateY); ctx.stroke();
+      // Sustain bar trailing UP from the head: its length is the note's scored
+      // duration, so you can read how long to hold the sound (mirrors Free Play).
+      var durPx = (s.d || 0) * pxPerMs;
+      if (durPx > 4 * dpr) {
+        var bw = 9 * dpr;
+        ctx.globalAlpha = s.consumed ? 0.12 : 0.4;
+        ctx.fillStyle = col;
+        rrect(ctx, x - bw / 2, y - durPx, bw, durPx, bw / 2); ctx.fill();
+      }
       ctx.globalAlpha = s.consumed ? 0.25 : 1;
       ctx.fillStyle = (s.result === 1) ? '#2ecc71' : col;
       ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
@@ -763,6 +897,18 @@
       ctx.font = 'bold ' + (12 * dpr) + 'px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText(I.noteName(s.m), x, y);
     }
+  }
+
+  // Rounded-rect path (ctx.roundRect isn't available on older mobile Safari).
+  function rrect(ctx, x, y, w, h, r) {
+    r = Math.min(r, w / 2, h / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + w, y, x + w, y + h, r);
+    ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r);
+    ctx.arcTo(x, y, x + w, y, r);
+    ctx.closePath();
   }
 
   // ===========================================================================

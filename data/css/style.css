@@ -140,6 +140,7 @@ input[type="text"]:focus, select:focus { border-color: var(--accent); }
 .pad__icon { font-size: clamp(48px, 16vw, 90px); }
 .pad__label { font-size: clamp(26px, 8vw, 44px); letter-spacing: .06em; }
 .pad--free   { height: 46vh; height: 46dvh; gap: 6px; }
+.pad--warm   { height: 34vh; height: 34dvh; gap: 6px; }
 .pad--along, .pad--driven { height: 22vh; height: 22dvh; }
 .pad--hit  { animation: padhit 320ms ease; }
 .pad--miss { animation: padmiss 320ms ease; }
@@ -201,6 +202,54 @@ input[type="text"]:focus, select:focus { border-color: var(--accent); }
 .countdown__sub { color: var(--text-dim); letter-spacing: .2em; text-transform: uppercase; }
 .pop { animation: pop 380ms ease; }
 @keyframes pop { 0%{transform:scale(.4);opacity:0;} 50%{transform:scale(1.15);opacity:1;} 100%{transform:scale(1);} }
+
+/* Timing verdict (PERFECT / GREAT / GOOD / MISS) — pops above the pad on a tap */
+.judge {
+  position: fixed; left: 50%; top: 32%; z-index: 40; pointer-events: none;
+  font-weight: 900; font-size: clamp(22px, 7vw, 42px); letter-spacing: .04em;
+  opacity: 0; text-shadow: 0 3px 16px rgba(0,0,0,.55); white-space: nowrap;
+}
+.judge--perfect { color: var(--accent2); }
+.judge--great   { color: var(--accent); }
+.judge--good    { color: var(--text-dim); }
+.judge--miss    { color: var(--bad); }
+.judge--show { animation: judgepop 600ms ease forwards; }
+@keyframes judgepop {
+  0%   { opacity: 0; transform: translate(-50%, 10px) scale(.7); }
+  25%  { opacity: 1; transform: translate(-50%, 0) scale(1.06); }
+  80%  { opacity: 1; }
+  100% { opacity: 0; transform: translate(-50%, -16px) scale(1); }
+}
+
+/* Combo-milestone burst */
+.combofx {
+  position: fixed; left: 0; right: 0; top: 24%; z-index: 45; text-align: center;
+  pointer-events: none; font-weight: 900; font-size: clamp(30px, 10vw, 64px);
+  color: var(--accent2); text-shadow: 0 4px 24px rgba(255,215,107,.6); opacity: 0;
+}
+.combofx--show { animation: combopop 950ms ease forwards; }
+@keyframes combopop {
+  0%   { opacity: 0; transform: scale(.5) rotate(-5deg); }
+  30%  { opacity: 1; transform: scale(1.12) rotate(2deg); }
+  70%  { opacity: 1; transform: scale(1); }
+  100% { opacity: 0; transform: scale(1.05); }
+}
+
+/* End-of-piece curtain call (shared by musician + conductor) */
+.celebrate {
+  position: fixed; inset: 0; z-index: 60; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; gap: 12px; text-align: center;
+  padding: 24px calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+  background: rgba(13,9,24,.88); backdrop-filter: blur(6px); animation: rise 320ms ease;
+}
+.celebrate__emoji { font-size: clamp(64px, 22vw, 96px); animation: pop 520ms ease; }
+.celebrate__title { font-size: clamp(28px, 8vw, 40px); font-weight: 900; color: var(--accent2); }
+.celebrate__stats { display: flex; gap: 26px; flex-wrap: wrap; justify-content: center; margin-top: 4px; }
+.celebrate__stat  { display: flex; flex-direction: column; gap: 2px; }
+.celebrate__num   { font-size: clamp(24px, 7vw, 32px); font-weight: 900; }
+.celebrate__lbl   { font-size: 11px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .08em; }
+.celebrate__record { color: var(--accent2); font-weight: 800; animation: claim-pulse 1.2s ease-in-out infinite; }
+.celebrate__btn   { margin-top: 12px; }
 
 /* Floating ambient notes */
 .fx-note {
@@ -265,6 +314,14 @@ input[type="text"]:focus, select:focus { border-color: var(--accent); }
 
 .transport { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 14px; margin: 12px; }
 .transport__status { color: var(--accent2); font-weight: 700; }
+.record-label { color: var(--accent2); font-weight: 700; font-size: 13px; }
+
+/* Live "orchestra sync" gauge. The fill is a fixed red→gold→green gradient
+ * revealed left-to-right by its width, so a low score reads red and a high one
+ * reaches into the green. */
+.syncmeter { position: relative; height: 36px; border-radius: 999px; background: var(--bg-elev); border: 1px solid var(--border); overflow: hidden; }
+.syncmeter__fill { position: absolute; inset: 0 auto 0 0; width: 0%; background: linear-gradient(90deg, var(--bad) 0%, var(--accent2) 55%, var(--ok) 100%); transition: width 280ms ease; }
+.syncmeter__label { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; text-shadow: 0 1px 4px rgba(0,0,0,.6); }
 .toggle { display: inline-flex; align-items: center; gap: 7px; font-size: 14px; color: var(--text-dim); cursor: pointer; user-select: none; }
 .toggle input { width: 18px; height: 18px; accent-color: var(--accent); }
 

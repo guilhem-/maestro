@@ -52,7 +52,13 @@
       <label class="toggle" title="The podium plays any voice that has no musician assigned">
         <input type="checkbox" id="chk-autofill"> 🎹 Auto-play empty parts
       </label>
+      <span id="record-label" class="record-label"></span>
       <div id="transport-status" class="transport__status"></div>
+    </section>
+
+    <section id="sync-panel" class="panel" hidden>
+      <h2 class="panel__h">🎚️ Orchestra sync <span class="panel__note">how together the room is, right now</span></h2>
+      <div class="syncmeter"><div id="sync-fill" class="syncmeter__fill"></div><div id="sync-label" class="syncmeter__label">—</div></div>
     </section>
 
     <section id="cue" class="cue panel" hidden>

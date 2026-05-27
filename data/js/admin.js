@@ -20,8 +20,10 @@
   var curScoreId = '', curScore = '';   // curScore = fetched object once loaded
   var cardsById = {};
   var live = {};           // playerId -> {hits,misses}  (live tally this run)
+  var recentNotes = [];    // {at,correct} over a sliding window → live "orchestra sync" gauge
   var runKey = 0;
   var autoStopSent = false; // end-of-piece auto-stop fired for the current run?
+  var SYNC_WINDOW = 4000;  // ms of recent notes the sync gauge averages over
 
   // Guide / accompaniment playback. `guideReady` means every instrument in the
   // score is precomputed (needed for the ALONG lead-in guide AND for auto-fill).
@@ -49,6 +51,8 @@
     els.cue = $('cue'); els.cueList = $('cue-list');
     els.btnAuto = $('btn-auto'); els.btnReload = $('btn-reload');
     els.assignBar = $('assign-bar'); els.chkAutofill = $('chk-autofill');
+    els.syncPanel = $('sync-panel'); els.syncFill = $('sync-fill'); els.syncLabel = $('sync-label');
+    els.recordLabel = $('record-label');
 
     try { autofillOn = localStorage.getItem('maestro.autofill') === '1'; } catch (e) {}
     if (els.chkAutofill) els.chkAutofill.checked = autofillOn;
@@ -158,7 +162,7 @@
     // Reset live tallies when a new run starts.
     var tr = s.transport || {};
     var key = tr.running ? tr.startAtMs : 0;
-    if (key !== runKey) { runKey = key; live = {}; autoStopSent = false; }
+    if (key !== runKey) { runKey = key; live = {}; recentNotes = []; autoStopSent = false; if (key) hideRoomCelebrate(); }
 
     markScoreCards(); markModeButtons();
     handleTransport();
@@ -169,6 +173,7 @@
     if (!evt || !evt.playerId) return;
     var lv = live[evt.playerId] || (live[evt.playerId] = { hits: 0, misses: 0 });
     if (evt.correct) lv.hits++; else lv.misses++;
+    recentNotes.push({ at: performance.now(), correct: !!evt.correct });
     var card = cardsById[evt.playerId];
     if (card) {
       card.root.classList.remove('note-hit', 'note-miss');
@@ -194,13 +199,23 @@
     els.modePill.className = 'modepill modepill--' + mode.toLowerCase();
 
     var listen = (mode === 'LISTEN');
-    var timed = (mode === 'ALONG' || mode === 'DRIVEN' || listen);
+    var tapped = (mode === 'ALONG' || mode === 'DRIVEN');   // modes the room plays by tapping
+    var timed = (tapped || listen);
     els.transport.hidden = !timed;
     els.assignBar.hidden = !timed;
     els.cue.hidden = (mode !== 'ALONG');
+    if (els.syncPanel) els.syncPanel.hidden = !tapped;       // sync gauge needs tap events
 
     if (els.chkAutofill) els.chkAutofill.checked = autofillOn;
     var tr = (lastState && lastState.transport) || {};
+
+    // Room high-score to beat (set before starting, in the tapped modes).
+    if (els.recordLabel) {
+      if (tapped && curScoreId && !tr.running) {
+        var rec = bestFor(curScoreId);
+        els.recordLabel.textContent = (rec == null) ? '🏆 No room record yet — set one!' : ('🏆 Room best: ' + rec + '%');
+      } else els.recordLabel.textContent = '';
+    }
 
     // Normal Start (ALONG/DRIVEN) vs the two Listen-Only buttons.
     els.btnStart.hidden = listen;
@@ -344,8 +359,9 @@
         if (len && pos > len + 800) {
           els.tStatus.textContent = '🎉 finished';
           // Stop once at the end so the piece ends at the same moment on every
-          // device (one server stop → all clients halt together).
-          if (!autoStopSent) { autoStopSent = true; send({ t: 'stop' }); }
+          // device (one server stop → all clients halt together), then throw the
+          // whole room a curtain call.
+          if (!autoStopSent) { autoStopSent = true; send({ t: 'stop' }); celebrateRoom(); }
         } else {
           els.tStatus.textContent = (inIntro ? '🎺 guiding · ' : '🎶 playing · ') + (pos / 1000).toFixed(1) + 's';
         }
@@ -353,6 +369,69 @@
     }
 
     if (mode === 'ALONG' && !els.cue.hidden) renderCue(pos);
+    if ((mode === 'ALONG' || mode === 'DRIVEN') && tr.running) updateSyncMeter();
+  }
+
+  // ===========================================================================
+  // Collective "orchestra sync" gauge — how together the room is, right now.
+  // Averages the correct/total ratio of every musician's taps over a short
+  // sliding window, so it surges when the room locks into the beat.
+  // ===========================================================================
+  function updateSyncMeter() {
+    if (!els.syncFill) return;
+    var now = performance.now();
+    while (recentNotes.length && now - recentNotes[0].at > SYNC_WINDOW) recentNotes.shift();
+    var tot = recentNotes.length, hits = 0;
+    for (var i = 0; i < tot; i++) if (recentNotes[i].correct) hits++;
+    if (!tot) { els.syncFill.style.width = '0%'; els.syncLabel.textContent = 'waiting for the room…'; return; }
+    var pct = Math.round(hits / tot * 100);
+    els.syncFill.style.width = pct + '%';
+    var vibe = pct >= 85 ? '🔥 locked in!' : pct >= 60 ? 'tightening up' : 'warming up';
+    els.syncLabel.textContent = pct + '%  ·  ' + vibe;
+  }
+
+  // ===========================================================================
+  // Room high score + curtain call
+  // ===========================================================================
+  function bestFor(id) { try { var v = localStorage.getItem('maestro.best.' + id); return v == null ? null : parseInt(v, 10); } catch (e) { return null; } }
+  function setBest(id, p) { try { localStorage.setItem('maestro.best.' + id, String(p)); } catch (e) {} }
+
+  function celebrateRoom() {
+    var mode = lastState && lastState.mode;
+    var withTaps = (mode === 'ALONG' || mode === 'DRIVEN');
+    var hits = 0, miss = 0;
+    for (var k in live) { hits += live[k].hits; miss += live[k].misses; }
+    var tot = hits + miss;
+    var pct = tot ? Math.round(hits / tot * 100) : 0;
+    var prevRec = withTaps ? bestFor(curScoreId) : null, isRecord = false;
+    if (withTaps && tot && (prevRec == null || pct > prevRec)) { isRecord = true; setBest(curScoreId, pct); }
+    showRoomCelebrate({ withTaps: withTaps && tot > 0, pct: pct, tot: tot, isRecord: isRecord, prevRec: prevRec, title: (curScore && curScore.title) || '' });
+  }
+
+  function rcStat(num, lbl) { var d = el('div', 'celebrate__stat'); d.appendChild(el('div', 'celebrate__num', num)); d.appendChild(el('div', 'celebrate__lbl', lbl)); return d; }
+  function showRoomCelebrate(o) {
+    hideRoomCelebrate();
+    var ov = el('div', 'celebrate');
+    ov.appendChild(el('div', 'celebrate__emoji', o.isRecord ? '🏆' : '🎉'));
+    ov.appendChild(el('div', 'celebrate__title', o.withTaps ? 'Bravo, orchestra!' : 'Encore!'));
+    if (o.title) ov.appendChild(el('div', 'panel__note', o.title));
+    if (o.withTaps) {
+      var st = el('div', 'celebrate__stats');
+      st.appendChild(rcStat(o.pct + '%', 'orchestra accuracy'));
+      st.appendChild(rcStat(String(o.tot), 'notes played'));
+      ov.appendChild(st);
+      if (o.isRecord) ov.appendChild(el('div', 'celebrate__record', '🏆 New room record!'));
+      else if (o.prevRec != null) ov.appendChild(el('div', 'panel__note', 'Room best: ' + o.prevRec + '%'));
+    }
+    var btn = el('button', 'btn btn--go celebrate__btn', 'Continue'); btn.type = 'button';
+    btn.addEventListener('click', hideRoomCelebrate);
+    ov.appendChild(btn);
+    document.body.appendChild(ov);
+    els.roomCelebrate = ov;
+  }
+  function hideRoomCelebrate() {
+    if (els.roomCelebrate && els.roomCelebrate.parentNode) els.roomCelebrate.parentNode.removeChild(els.roomCelebrate);
+    els.roomCelebrate = null;
   }
 
   // Show every musician's upcoming note within CUE_AHEAD ms, soonest first.
