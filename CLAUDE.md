@@ -159,11 +159,6 @@ conductor can also hand off deliberately: the "step down" button on their own
 grid card sends `resign` (frees the seat immediately, no grace) and redirects to
 `/` to rejoin as a musician.
 
-Per-musician
-hit/miss counters in `state` only refresh on structural changes (the `play`
-edge event is intentionally cheap), so the conductor UI tallies live from `note`
-events.
-
 ### Identity model
 
 Same as QuizHub: a stable `clientId` (server-issued `mz_id` cookie, falling back
