@@ -42,8 +42,10 @@ struct Player {
 // FREEPLAY = "Free Play": multi-touch falling-note instrument (client-side).
 // LISTEN   = "Listen Only": the piece auto-plays (no tapping) — either on the
 //            conductor device (all voices) or on each player device (its part).
-// FREE/FREEPLAY use no transport; ALONG/DRIVEN/LISTEN do.
-enum class Mode : uint8_t { LOBBY, FREE, FREEPLAY, ALONG, DRIVEN, LISTEN };
+// SCORE    = "Read Score": each musician sees their assigned voice as a
+//            scrollable piano-roll of the whole piece (read-only, no transport).
+// FREE/FREEPLAY/SCORE use no transport; ALONG/DRIVEN/LISTEN do.
+enum class Mode : uint8_t { LOBBY, FREE, FREEPLAY, ALONG, DRIVEN, LISTEN, SCORE };
 
 class GameState {
 public:

@@ -107,7 +107,7 @@ shared across three layers: the server FSM (`GameState`/`WsHub`), the musician U
 rename or reshape a field in one layer without updating all three and the
 comment block in `WsHub.h`.** Receivers must ignore unknown `t` values.
 
-### The five modes
+### The six modes
 
 - **FREE ("Test Play")** — each musician picks an instrument (the list is derived
   from the selected score's voices) and taps a button to play a **random
@@ -140,6 +140,13 @@ comment block in `WsHub.h`.** Receivers must ignore unknown `t` values.
   auto-schedules its own assigned voice off the transport clock — `handleListen`
   / `scheduleListen` in `player.js`). The target rides on the `start` message
   and in `transport.target`.
+
+- **SCORE ("Read Score")** — read-only reference: the conductor assigns voices
+  (same assign UI as the timed modes, but no transport / Start) and each musician
+  sees their part as a **scrollable piano-roll** of the whole piece — time runs
+  top→bottom, pitch low→left/high→right, each note a labelled block sized to its
+  duration (`buildScore` / `layoutScore` in `player.js`). No audio, so the phone
+  skips the instrument precompute for this mode.
 
 **Auto-play empty parts** (conductor toggle, `admin.js`, both timed modes): the
 podium performs every voice with no assigned online musician — full piece,

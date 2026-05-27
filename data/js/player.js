@@ -153,10 +153,11 @@
 
   // In ALONG/DRIVEN/LISTEN the instrument comes from the assigned voice — but
   // only once you actually have one. Before that (waiting for a part) you keep
-  // your own choice, so the warm-up pad makes the sound you picked.
+  // your own choice, so the warm-up pad makes the sound you picked. SCORE is
+  // read-only (no audio), so the chooser is irrelevant there too.
   function isInstrumentDictated() {
     var m = lastState && lastState.mode;
-    if (m === 'LISTEN') return true;
+    if (m === 'LISTEN' || m === 'SCORE') return true;
     return (m === 'ALONG' || m === 'DRIVEN') && !!myVoice;
   }
 
@@ -173,6 +174,8 @@
   // ===========================================================================
   // FREE/LOBBY → the chosen instrument; ALONG/DRIVEN → my voice's instrument.
   function desiredInstrument() {
+    // SCORE is a read-only view → no audio buffers needed, skip precompute.
+    if (lastState && lastState.mode === 'SCORE') return null;
     // While a part is assigned, the voice dictates the instrument; before that
     // (waiting for a part, or the lobby) fall back to the profile choice so the
     // phone can pre-tune and the musician can warm up.
@@ -461,6 +464,7 @@
     else if (mode === 'ALONG')    buildAlong(stage);
     else if (mode === 'DRIVEN')   buildDriven(stage);
     else if (mode === 'LISTEN')   buildListen(stage);
+    else if (mode === 'SCORE')    buildScore(stage);
     else                          buildLobby(stage);
 
     toggleProfile(mode === 'LOBBY' || mode === 'FREE' || mode === 'FREEPLAY');
@@ -788,6 +792,65 @@
       if (when < nowCtx - 0.05) continue;       // don't dump already-past notes
       var src = I.play(effInstr, n.m, when, I.velGain(n.v), null, n.d);
       if (src) listenSources.push(src);
+    }
+  }
+
+  // ---- Read Score ----------------------------------------------------------
+  // A read-only, scrollable piano-roll of the musician's assigned voice for the
+  // whole piece: time runs top→bottom, pitch low→left / high→right, each note a
+  // labelled block whose height is its duration. No audio, no transport.
+  function buildScore(stage) {
+    if (!myVoice) { buildWaitingForPart(stage, 'Read Score'); return; }
+    var w = el('div', 'scoreview');
+
+    var head = el('div', 'partbar'); head.style.setProperty('--pad', profile.color);
+    head.appendChild(el('span', 'partbar__icon', I.icon(myVoice.instrument)));
+    head.appendChild(el('span', 'partbar__name', '📜 ' + myVoice.name + ' · ' + I.label(myVoice.instrument)));
+    w.appendChild(head);
+
+    var scroller = el('div', 'scoreroll');
+    var roll = el('div', 'scoreroll__inner');
+    scroller.appendChild(roll);
+    w.appendChild(scroller);
+    w.appendChild(el('div', 'free__hint', 'Scroll through your part — top to bottom'));
+    stage.appendChild(w);
+    layoutScore(roll);
+  }
+
+  function layoutScore(roll) {
+    var notes = (myVoice && myVoice.notes) || [];
+    if (!notes.length) { roll.appendChild(el('div', 'scoreroll__empty', '(empty part)')); return; }
+
+    var lo = notes[0].m, hi = notes[0].m, endMs = 0;
+    for (var i = 0; i < notes.length; i++) {
+      var n = notes[i];
+      if (n.m < lo) lo = n.m; if (n.m > hi) hi = n.m;
+      var e = n.t + (n.d || 200); if (e > endMs) endMs = e;
+    }
+    var span = Math.max(1, hi - lo);
+    var PXMS = 0.16;                       // vertical px per ms (scroll length)
+    var padTop = 16;
+    roll.style.height = Math.round(endMs * PXMS + padTop * 2) + 'px';
+
+    // Time gridlines on the beat; heavier line every 4 beats (a "bar").
+    var beatMs = 60000 / ((curScore && curScore.tempo) || 120);
+    for (var b = 0, y; (y = padTop + b * beatMs * PXMS) <= endMs * PXMS + padTop; b++) {
+      var line = el('div', (b % 4 === 0) ? 'scoreline scoreline--bar' : 'scoreline');
+      line.style.top = y + 'px';
+      if (b % 4 === 0) line.appendChild(el('span', 'scoreline__n', String(b / 4 + 1)));
+      roll.appendChild(line);
+    }
+
+    // Notes: centre-x by pitch (8%..92% of width), height = duration.
+    for (var j = 0; j < notes.length; j++) {
+      var nn = notes[j];
+      var blk = el('div', 'snote');
+      blk.style.top = (padTop + nn.t * PXMS) + 'px';
+      blk.style.height = Math.max(15, (nn.d || 200) * PXMS) + 'px';
+      blk.style.left = (span === 0 ? 50 : (8 + (nn.m - lo) / span * 84)).toFixed(2) + '%';
+      blk.style.background = profile.color;
+      blk.appendChild(el('span', 'snote__lbl', I.noteName(nn.m)));
+      roll.appendChild(blk);
     }
   }
 

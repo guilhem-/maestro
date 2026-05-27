@@ -54,6 +54,7 @@ const char* modeToStr(Mode m) {
         case Mode::ALONG:    return "ALONG";
         case Mode::DRIVEN:   return "DRIVEN";
         case Mode::LISTEN:   return "LISTEN";
+        case Mode::SCORE:    return "SCORE";
         case Mode::LOBBY:
         default:             return "LOBBY";
     }
@@ -65,6 +66,7 @@ bool parseMode(const String& s, Mode& out) {
     else if (s == "ALONG")    out = Mode::ALONG;
     else if (s == "DRIVEN")   out = Mode::DRIVEN;
     else if (s == "LISTEN")   out = Mode::LISTEN;
+    else if (s == "SCORE")    out = Mode::SCORE;
     else if (s == "LOBBY")    out = Mode::LOBBY;
     else return false;
     return true;

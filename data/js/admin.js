@@ -95,7 +95,8 @@
     ['FREE',     '🎲 Test Play',   'Tap = random note'],
     ['ALONG',    '🎺 Play Along',  'Follow the conductor'],
     ['DRIVEN',   '🎯 Follow Notes', 'Catch falling notes'],
-    ['LISTEN',   '🎧 Listen Only', 'Auto-play the piece']
+    ['LISTEN',   '🎧 Listen Only', 'Auto-play the piece'],
+    ['SCORE',    '📜 Read Score',  'Scrollable part per player']
   ];
   function buildModeButtons() {
     els.modeRow.innerHTML = '';
@@ -210,14 +211,15 @@
   // ===========================================================================
   function renderAll() {
     var mode = (lastState && lastState.mode) || 'LOBBY';
-    els.modePill.textContent = ({ LOBBY: 'Lobby', FREE: 'Test Play', FREEPLAY: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes', LISTEN: 'Listen Only' })[mode] || mode;
+    els.modePill.textContent = ({ LOBBY: 'Lobby', FREE: 'Test Play', FREEPLAY: 'Free Play', ALONG: 'Play Along', DRIVEN: 'Follow Notes', LISTEN: 'Listen Only', SCORE: 'Read Score' })[mode] || mode;
     els.modePill.className = 'modepill modepill--' + mode.toLowerCase();
 
     var listen = (mode === 'LISTEN');
+    var score  = (mode === 'SCORE');
     var tapped = (mode === 'ALONG' || mode === 'DRIVEN');   // modes the room plays by tapping
     var timed = (tapped || listen);
     els.transport.hidden = !timed;
-    els.assignBar.hidden = !timed;
+    els.assignBar.hidden = !(timed || score);                // SCORE needs parts too, but no transport
     els.cue.hidden = (mode !== 'ALONG');
     if (els.syncPanel) els.syncPanel.hidden = !tapped;       // sync gauge needs tap events
 
@@ -320,8 +322,9 @@
 
     // Voice <select> — rebuild options only when the voice set changes.
     var sig = voices.map(function (v) { return v.id; }).join(',');
-    var timed = lastState && (lastState.mode === 'ALONG' || lastState.mode === 'DRIVEN');
-    entry.sel.hidden = !timed || voices.length === 0;
+    var m = lastState && lastState.mode;
+    var assignable = (m === 'ALONG' || m === 'DRIVEN' || m === 'SCORE');
+    entry.sel.hidden = !assignable || voices.length === 0;
     if (entry.voicesSig !== sig) {
       entry.voicesSig = sig;
       entry.sel.innerHTML = '';

@@ -83,7 +83,7 @@
 // -----------------------------------------------------------------------------
 //
 //   { "t": "state",
-//     "mode":    "LOBBY"|"FREE"|"FREEPLAY"|"ALONG"|"DRIVEN"|"LISTEN",
+//     "mode":    "LOBBY"|"FREE"|"FREEPLAY"|"ALONG"|"DRIVEN"|"LISTEN"|"SCORE",
 //     "scoreId": "<id or empty>",
 //     "adminId": "<clientId of conductor, empty if none>",
 //     "transport": {

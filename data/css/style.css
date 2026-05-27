@@ -76,6 +76,7 @@ input[type="text"]:focus, select:focus { border-color: var(--accent); }
 .modepill--along    { background: rgba(176,139,255,.22); color: var(--accent); }
 .modepill--driven   { background: rgba(46,204,113,.18);  color: var(--ok); }
 .modepill--listen   { background: rgba(255,215,107,.16); color: var(--accent2); }
+.modepill--score    { background: rgba(155,89,182,.22); color: #c98be0; }
 
 /* ----- Banner / toast ------------------------------------------------------*/
 .banner {
@@ -191,6 +192,26 @@ input[type="text"]:focus, select:focus { border-color: var(--accent); }
 .lane__canvas { display: block; width: 100%; height: 100%; }
 /* Free Play uses a taller zone so the pitch columns are comfortable to touch. */
 .lane--free { height: 56vh; height: 56dvh; touch-action: none; }
+
+/* Read Score — scrollable piano-roll of the musician's part */
+.scoreview { width: 100%; max-width: 460px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.scoreroll {
+  position: relative; width: 100%; height: 64vh; height: 64dvh; overflow-y: auto;
+  -webkit-overflow-scrolling: touch; touch-action: pan-y;
+  background: linear-gradient(180deg, rgba(176,139,255,.06), rgba(0,0,0,.25));
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.scoreroll__inner { position: relative; width: 100%; }
+.scoreroll__empty { padding: 24px; text-align: center; color: var(--text-dim); }
+.scoreline { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,.06); }
+.scoreline--bar { background: rgba(255,255,255,.16); }
+.scoreline__n { position: absolute; left: 4px; top: 2px; font-size: 10px; color: var(--text-dim); }
+.snote {
+  position: absolute; width: 46px; transform: translateX(-50%); pointer-events: none;
+  border-radius: 7px; box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 3px rgba(0,0,0,.4);
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.snote__lbl { font-size: 11px; font-weight: 800; color: #1a0f2e; }
 
 /* Countdown overlay */
 .countdown {
