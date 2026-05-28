@@ -211,7 +211,55 @@ input[type="text"]:focus, select:focus { border-color: var(--accent); }
   border-radius: 7px; box-shadow: inset 0 1px 0 rgba(255,255,255,.35), 0 1px 3px rgba(0,0,0,.4);
   display: flex; align-items: center; justify-content: center; overflow: hidden;
 }
-.snote__lbl { font-size: 11px; font-weight: 800; color: #1a0f2e; }
+.snote__lbl { font-size: 11px; font-weight: 800; color: #1a0f2e; pointer-events: none; }
+.snote { cursor: pointer; }
+.snote--hit { animation: snotehit 320ms ease; }
+@keyframes snotehit { 0%{filter:brightness(1.8);transform:translateX(-50%) scale(1.08);} 100%{filter:none;} }
+
+/* Read Score — view toggle (Roll / Sheet) */
+.scoreseg { display: inline-flex; gap: 4px; padding: 4px; background: var(--bg-elev); border: 1px solid var(--border); border-radius: 999px; }
+.scoreseg__btn { border: none; background: transparent; border-radius: 999px; padding: 6px 14px; font-weight: 700; font-size: 13px; color: var(--text-dim); }
+.scoreseg__btn--on { background: rgba(155,89,182,.28); color: #d7b3e8; }
+
+/* Read Score — music sheet (treble staff, scrolls left→right) with a fixed
+ * one-octave keyboard pinned at the bottom of the frame. */
+.sheetwrap {
+  width: 100%; max-width: 460px; height: 56vh; height: 56dvh;
+  display: flex; flex-direction: column; overflow: hidden;
+  background: linear-gradient(180deg, rgba(176,139,255,.06), rgba(0,0,0,.25));
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.sheetroll {
+  position: relative; flex: 1 1 auto; min-height: 0; overflow: auto;
+  -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y;
+}
+.sheet { position: relative; min-width: 100%; }
+.staffline { position: absolute; left: 0; right: 0; height: 1px; background: rgba(255,255,255,.4); }
+.clef { position: absolute; left: 8px; font-size: 64px; line-height: 1; color: var(--text); }
+.notehead {
+  position: absolute; width: 17px; height: 13px; border-radius: 50%;
+  transform: rotate(-22deg); cursor: pointer; color: var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.4), 0 1px 2px rgba(0,0,0,.45);
+}
+/* Open ("white") head = half/whole note: hollow ring in the part colour. */
+.notehead--open { background: transparent !important; box-shadow: none; border: 2.5px solid currentColor; }
+.notehead__lbl { position: absolute; left: 50%; top: 120%; transform: translateX(-50%) rotate(22deg); font-size: 9px; font-weight: 700; color: var(--text-dim); white-space: nowrap; pointer-events: none; }
+.notehead.snote--hit { animation: noteheadhit 320ms ease; }
+@keyframes noteheadhit { 0%{filter:brightness(1.8);transform:rotate(-22deg) scale(1.25);} 100%{filter:none;transform:rotate(-22deg) scale(1);} }
+.stem { position: absolute; width: 2px; height: 28px; }
+.flag { position: absolute; width: 9px; height: 6px; border-radius: 0 70% 70% 0; }
+.accidental { position: absolute; font-size: 16px; font-weight: 700; color: var(--text); }
+.ledger { position: absolute; width: 27px; height: 1px; background: rgba(255,255,255,.5); }
+
+/* Pinned one-octave keyboard */
+.piano { position: relative; flex: none; height: 66px; display: flex; background: #0d0a18; border-top: 1px solid var(--border); }
+.pkey { padding: 0; border-radius: 0 0 5px 5px; }
+.pkey--w { flex: 1; background: #efe9fb; border: 1px solid #2a2440; }
+.pkey--b { position: absolute; top: 0; width: 8.5%; height: 62%; background: #211836; border: 1px solid #000; transform: translateX(-50%); z-index: 2; }
+.pkey--w.pkey--lit { animation: keylitW 360ms ease; }
+@keyframes keylitW { 0%{background:var(--accent2);} 100%{background:#efe9fb;} }
+.pkey--b.pkey--lit { animation: keylitB 360ms ease; }
+@keyframes keylitB { 0%{background:var(--accent);} 100%{background:#211836;} }
 
 /* Countdown overlay */
 .countdown {

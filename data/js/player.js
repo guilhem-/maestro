@@ -796,11 +796,17 @@
   }
 
   // ---- Read Score ----------------------------------------------------------
-  // A read-only, scrollable piano-roll of the musician's assigned voice for the
-  // whole piece: time runs top→bottom, pitch low→left / high→right, each note a
-  // labelled block whose height is its duration. No audio, no transport.
+  // A read-only view of the musician's assigned voice for the whole piece, in
+  // one of two layouts (toggle): a piano-ROLL (time top→bottom, pitch left→right)
+  // or a music SHEET (treble staff, time left→right). In both, tapping a note
+  // plays it on the device. Audio is loaded lazily on the first tap so the view
+  // shows instantly. No transport.
+  var scoreSubview = (function () { try { return localStorage.getItem('maestro.scoreView') || 'roll'; } catch (e) { return 'roll'; } })();
+  var pianoKeys = {};            // sheet view: pitch-class → keyboard key element (lit on play)
+
   function buildScore(stage) {
     if (!myVoice) { buildWaitingForPart(stage, 'Read Score'); return; }
+    pianoKeys = {};              // dropped unless the sheet view rebuilds it
     var w = el('div', 'scoreview');
 
     var head = el('div', 'partbar'); head.style.setProperty('--pad', profile.color);
@@ -808,16 +814,61 @@
     head.appendChild(el('span', 'partbar__name', '📜 ' + myVoice.name + ' · ' + I.label(myVoice.instrument)));
     w.appendChild(head);
 
-    var scroller = el('div', 'scoreroll');
-    var roll = el('div', 'scoreroll__inner');
-    scroller.appendChild(roll);
-    w.appendChild(scroller);
-    w.appendChild(el('div', 'free__hint', 'Scroll through your part — top to bottom'));
-    stage.appendChild(w);
-    layoutScore(roll);
+    // View toggle: Roll vs Sheet.
+    var seg = el('div', 'scoreseg');
+    [['roll', '🎹 Roll'], ['sheet', '🎼 Sheet']].forEach(function (o) {
+      var b = el('button', 'scoreseg__btn' + (scoreSubview === o[0] ? ' scoreseg__btn--on' : ''), o[1]);
+      b.type = 'button';
+      b.addEventListener('click', function () {
+        if (scoreSubview === o[0]) return;
+        scoreSubview = o[0];
+        try { localStorage.setItem('maestro.scoreView', scoreSubview); } catch (e) {}
+        renderStage(true);
+      });
+      seg.appendChild(b);
+    });
+    w.appendChild(seg);
+
+    if (scoreSubview === 'sheet') {
+      // A framed area: the staff scrolls; a one-octave keyboard pinned at the
+      // bottom does not (it's a sibling of the scroller, not inside it).
+      var frame = el('div', 'sheetwrap');
+      var sroll = el('div', 'sheetroll');
+      var sheet = el('div', 'sheet');
+      sroll.appendChild(sheet); frame.appendChild(sroll);
+      frame.appendChild(buildKeyboard());
+      w.appendChild(frame);
+      w.appendChild(el('div', 'free__hint', 'Tap a note or a key to hear it — scroll left to right'));
+      stage.appendChild(w);
+      layoutSheet(sheet);
+    } else {
+      var scroller = el('div', 'scoreroll');
+      var roll = el('div', 'scoreroll__inner');
+      scroller.appendChild(roll); w.appendChild(scroller);
+      w.appendChild(el('div', 'free__hint', 'Tap a note to hear it — scroll top to bottom'));
+      stage.appendChild(w);
+      layoutRoll(roll);
+    }
   }
 
-  function layoutScore(roll) {
+  // Lazily load the part's instrument, then sound the tapped note. Also lights
+  // the matching keyboard key (no-op outside the sheet view).
+  function playScoreNote(m, durMs) {
+    I.unlock();
+    animateKey(((m % 12) + 12) % 12);
+    var instr = myVoice && myVoice.instrument; if (!instr) return;
+    if (I.isReady(instr)) { I.play(instr, m, 0, 0.95, null, durMs); return; }
+    I.precompute(instr).then(function () { I.play(instr, m, 0, 0.95, null, durMs); });
+  }
+  function makeTappable(node, m, durMs) {
+    node.addEventListener('pointerdown', function (e) {
+      e.preventDefault(); e.stopPropagation();
+      playScoreNote(m, durMs);
+      node.classList.remove('snote--hit'); void node.offsetWidth; node.classList.add('snote--hit');
+    });
+  }
+
+  function layoutRoll(roll) {
     var notes = (myVoice && myVoice.notes) || [];
     if (!notes.length) { roll.appendChild(el('div', 'scoreroll__empty', '(empty part)')); return; }
 
@@ -832,7 +883,6 @@
     var padTop = 16;
     roll.style.height = Math.round(endMs * PXMS + padTop * 2) + 'px';
 
-    // Time gridlines on the beat; heavier line every 4 beats (a "bar").
     var beatMs = 60000 / ((curScore && curScore.tempo) || 120);
     for (var b = 0, y; (y = padTop + b * beatMs * PXMS) <= endMs * PXMS + padTop; b++) {
       var line = el('div', (b % 4 === 0) ? 'scoreline scoreline--bar' : 'scoreline');
@@ -841,7 +891,6 @@
       roll.appendChild(line);
     }
 
-    // Notes: centre-x by pitch (8%..92% of width), height = duration.
     for (var j = 0; j < notes.length; j++) {
       var nn = notes[j];
       var blk = el('div', 'snote');
@@ -850,9 +899,127 @@
       blk.style.left = (span === 0 ? 50 : (8 + (nn.m - lo) / span * 84)).toFixed(2) + '%';
       blk.style.background = profile.color;
       blk.appendChild(el('span', 'snote__lbl', I.noteName(nn.m)));
+      makeTappable(blk, nn.m, nn.d);
       roll.appendChild(blk);
     }
   }
+
+  // Spell a pitch for the treble staff. Naturals keep their letter; a black key
+  // is a sharp when ascending/repeating into it and a flat when descending —
+  // which sets both the staff position (C♯ on C, D♭ on D) and the glyph.
+  function spell(m, prevM) {
+    var natLetter = { 0: 0, 2: 1, 4: 2, 5: 3, 7: 4, 9: 5, 11: 6 };   // C D E F G A B
+    var pc = ((m % 12) + 12) % 12;
+    if (natLetter.hasOwnProperty(pc)) return { letter: natLetter[pc], oct: Math.floor(m / 12) - 1, acc: '' };
+    var flat = (prevM != null && prevM > m);
+    var nat = flat ? m + 1 : m - 1;                                  // the natural we lean on
+    return { letter: natLetter[((nat % 12) + 12) % 12], oct: Math.floor(nat / 12) - 1, acc: flat ? 'b' : '#' };
+  }
+  function stepFromSpell(sp) { return sp.oct * 7 + sp.letter - 30; }   // 30 = E4, the bottom line
+
+  function addLedger(sheet, x, y) {
+    var l = el('div', 'ledger'); l.style.left = (x - 5) + 'px'; l.style.top = y + 'px'; sheet.appendChild(l);
+  }
+
+  // Note value from its length in beats → open/filled head, stem, flag count
+  // (so half/whole notes read as hollow "white" heads, quarters and shorter as
+  // filled "black" heads).
+  function noteValue(beats) {
+    if (beats >= 3)     return { open: true,  stem: false, flags: 0 };  // whole
+    if (beats >= 1.5)   return { open: true,  stem: true,  flags: 0 };  // half
+    if (beats >= 0.75)  return { open: false, stem: true,  flags: 0 };  // quarter
+    if (beats >= 0.375) return { open: false, stem: true,  flags: 1 };  // eighth
+    return                     { open: false, stem: true,  flags: 2 };  // sixteenth
+  }
+
+  function layoutSheet(sheet) {
+    var notes = (myVoice && myVoice.notes) || [];
+    if (!notes.length) { sheet.appendChild(el('div', 'scoreroll__empty', '(empty part)')); return; }
+    var color = profile.color || '#b08bff';
+    var beatMs = 60000 / ((curScore && curScore.tempo) || 120);
+    var PXMS = 0.09, startX = 56, half = 7;   // half = px per staff step
+
+    // Spell each note first (its accidental sets its staff position), then size.
+    var info = [], prev = null, minS = Infinity, maxS = -Infinity, endMs = 0;
+    for (var i = 0; i < notes.length; i++) {
+      var n = notes[i], sp = spell(n.m, prev), st = stepFromSpell(sp);
+      info.push({ m: n.m, d: n.d || 200, t: n.t, step: st, acc: sp.acc });
+      if (st < minS) minS = st; if (st > maxS) maxS = st;
+      var e = n.t + (n.d || 200); if (e > endMs) endMs = e;
+      prev = n.m;
+    }
+    var topPad = 28 + Math.max(0, maxS - 8) * half;          // room for high ledger notes
+    var baseY = topPad + 8 * half;                           // y of step 0 (bottom line)
+    function yOf(st) { return baseY - st * half; }
+    sheet.style.height = Math.round(baseY + Math.max(0, -minS) * half + 28) + 'px';
+
+    for (var li = 0; li <= 8; li += 2) {                     // 5 staff lines
+      var line = el('div', 'staffline'); line.style.top = yOf(li) + 'px'; sheet.appendChild(line);
+    }
+    var clef = el('div', 'clef', '𝄞'); clef.style.top = (yOf(8) - 8) + 'px'; sheet.appendChild(clef);
+
+    // Place notes by time, but reserve space for accidentals: a ♯/♭ sits in the
+    // gap to the LEFT of its own notehead; if that gap would collide with the
+    // previous note, push this note (and, via the running offset, every note
+    // after it) to the right so the accidental never lands on the prior note.
+    var extra = 0, prevRight = startX - 8, lastX = startX;
+    for (var j = 0; j < info.length; j++) {
+      var it = info[j], y = yOf(it.step), v = noteValue(it.d / beatMs), k;
+      var accW = it.acc ? 15 : 0;
+      var x = startX + it.t * PXMS + extra;
+      var clusterLeft = x - accW - (it.acc ? 4 : 0);         // left edge incl. accidental
+      if (clusterLeft < prevRight + 5) { var push = (prevRight + 5) - clusterLeft; extra += push; x += push; }
+
+      if (it.step < 0) for (k = -2; k >= it.step; k -= 2) addLedger(sheet, x, yOf(k));
+      if (it.step > 8) for (k = 10; k <= it.step; k += 2) addLedger(sheet, x, yOf(k));
+      if (it.acc) { var acc = el('div', 'accidental', it.acc === 'b' ? '♭' : '♯'); acc.style.left = (x - 14) + 'px'; acc.style.top = (y - 9) + 'px'; sheet.appendChild(acc); }
+      var up = it.step < 4;
+      if (v.stem) {
+        var stemX = up ? x + 11 : x, stem = el('div', 'stem');
+        stem.style.background = color; stem.style.left = stemX + 'px'; stem.style.top = (up ? y - 28 : y + 4) + 'px';
+        sheet.appendChild(stem);
+        for (var f = 0; f < v.flags; f++) {
+          var fl = el('div', 'flag'); fl.style.background = color; fl.style.left = stemX + 'px';
+          fl.style.top = (up ? (y - 28 + f * 6) : (y + 27 - f * 6)) + 'px';
+          sheet.appendChild(fl);
+        }
+      }
+      var head = el('div', 'notehead' + (v.open ? ' notehead--open' : ''));
+      head.style.left = x + 'px'; head.style.top = (y - 5) + 'px'; head.style.color = color;
+      if (!v.open) head.style.background = color;
+      head.appendChild(el('span', 'notehead__lbl', I.noteName(it.m)));
+      makeTappable(head, it.m, it.d);
+      sheet.appendChild(head);
+
+      prevRight = x + 17; lastX = x;
+    }
+    sheet.style.width = Math.round(lastX + 60) + 'px';
+  }
+
+  // One-octave keyboard pinned at the bottom of the sheet frame. The key for a
+  // played pitch-class lights up; tapping a key plays that note (octave 4).
+  function buildKeyboard() {
+    var kb = el('div', 'piano');
+    pianoKeys = {};
+    [0, 2, 4, 5, 7, 9, 11].forEach(function (pc) {
+      var k = el('button', 'pkey pkey--w'); k.type = 'button';
+      k.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); kbPlay(pc); });
+      pianoKeys[pc] = k; kb.appendChild(k);
+    });
+    var blackAfter = { 1: 0, 3: 1, 6: 3, 8: 4, 10: 5 };   // pc → index of white key it sits after
+    Object.keys(blackAfter).forEach(function (pcStr) {
+      var pc = +pcStr, k = el('button', 'pkey pkey--b'); k.type = 'button';
+      k.style.left = ((blackAfter[pc] + 1) * (100 / 7)) + '%';
+      k.addEventListener('pointerdown', function (e) { e.preventDefault(); e.stopPropagation(); kbPlay(pc); });
+      pianoKeys[pc] = k; kb.appendChild(k);
+    });
+    return kb;
+  }
+  function animateKey(pc) {
+    var k = pianoKeys[pc]; if (!k) return;
+    k.classList.remove('pkey--lit'); void k.offsetWidth; k.classList.add('pkey--lit');
+  }
+  function kbPlay(pc) { playScoreNote(60 + pc, 450); }
 
   function bindPad(node, mode) {
     node.addEventListener('pointerdown', function (e) { e.preventDefault(); tapPlay(mode); });
